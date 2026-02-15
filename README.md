@@ -31,6 +31,41 @@ This project is structured exactly in two folders:
   - copy/paste/context menu restrictions
   - AI-style risk scoring from suspicious events with live warnings
 
+## UI Features
+
+### Landing Page
+- **Centered Layout**: All content is perfectly centered with professional spacing
+- **Fixed Top Navigation**: Logo on left, Login/Sign Up button on right (standard website pattern)
+- **3D Animated Background**: 
+  - 40+ floating particles with varied colors and sizes
+  - 3 pulsing spheres with animated scale effects
+  - 4 energy rings with rotation animations
+  - 2,500 stars for rich starfield background
+  - Color-shifting lights with dynamic intensity
+
+### Premium Visual Effects
+- **Gradient Text**: Animated color-shifting gradient on main heading (cyan to blue)
+- **Glassmorphism**: Backdrop blur effects on cards, modals, and navigation
+- **Floating Gradient Orbs**: Ambient background lighting effects
+- **Feature Cards**: 3D hover transforms with glow effects
+- **Interactive Pills**: Clickable feature pills with hover animations
+- **Premium CTA Buttons**: Gradient backgrounds with glow effects on hover
+
+### Interactive Features
+- **Feature Pills with Login Protection**:
+  - 📹 Camera + Mic Proctoring
+  - 🖥️ Auto Fullscreen Enforcement
+  - 🤖 AI-Powered Evaluation
+  - ⚡ Real-time Analytics
+  - Non-logged-in users: Clicking shows login prompt with specific error message
+  - Logged-in users: Clicking scrolls to relevant features section
+
+### Stats & Capabilities
+- **4 Large Stat Cards**: AI-Powered, Real-time, Secure, Smart with gradient text
+- **3 Feature Cards**: Adaptive Assessment, Advanced Proctoring, Intelligent Analytics
+- **Smooth Animations**: Entrance animations using Framer Motion
+- **Responsive Design**: Optimized for desktop, tablet, and mobile
+
 ## Marks
 
 - Teacher sets `Total Marks` during test creation.
@@ -82,3 +117,5 @@ VITE_API_BASE=http://localhost:5050/api
 
 - Browsers cannot silently force camera/mic; Evalo requests permissions and raises proctoring risk warnings when denied.
 - Fullscreen can also be exited by user/browser; this is tracked and flagged in proctoring events.
+- The landing page features a modern, premium design with 3D animations and glassmorphism effects.
+- All interactive elements include login protection to ensure secure access to features.

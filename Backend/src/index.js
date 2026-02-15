@@ -86,6 +86,113 @@ let dbReady = false;
 
 const LEVELS = ["beginner", "intermediate", "advanced"];
 const LEVEL_INDEX = { beginner: 0, intermediate: 1, advanced: 2 };
+const DIFFICULTY_LABELS = ["easy", "medium", "hard"];
+const QUESTION_FORMATS = ["subjective", "mcq", "mixed"];
+
+function mapDifficultyToLevel(input) {
+  const raw = String(input || "").trim().toLowerCase();
+  if (raw === "easy") return "beginner";
+  if (raw === "hard") return "advanced";
+  if (raw === "medium") return "intermediate";
+  return null;
+}
+
+function normalizeQuestionFormat(input) {
+  const raw = String(input || "").trim().toLowerCase();
+  if (QUESTION_FORMATS.includes(raw)) return raw;
+  return "subjective";
+}
+
+function topicMatchScore(topicTokens, question) {
+  if (!topicTokens?.length) return 0;
+  const keyTokens = (question.keywords || []).map((t) => natural.PorterStemmer.stem(String(t).toLowerCase()));
+  const refTokens = sentenceStemTokens(question.reference || "");
+  const vocabA = topicTokens;
+  // Combine weak (keywords) + strong (reference) matching, capped to [0,1].
+  const jKey = jaccardScore(vocabA, keyTokens);
+  const jRef = jaccardScore(vocabA, refTokens);
+  return Math.max(0, Math.min(1, 0.35 * jKey + 0.65 * jRef));
+}
+
+function filterBankByTopic(questionBank, topic) {
+  const t = String(topic || "").trim();
+  if (!t) return questionBank;
+  const tokens = sentenceStemTokens(t);
+  if (!tokens.length) return questionBank;
+  const scored = (questionBank || [])
+    .map((q) => ({ q, score: topicMatchScore(tokens, q) }))
+    .sort((a, b) => b.score - a.score);
+  const strong = scored.filter((s) => s.score >= 0.12).map((s) => s.q);
+  // If topic is too narrow, fall back gracefully to full bank.
+  return strong.length >= 10 ? strong : questionBank;
+}
+
+function firstSentence(text) {
+  const t = String(text || "").trim();
+  if (!t) return "";
+  return (t.split(/(?<=[.!?])\s+/)[0] || t).slice(0, 220);
+}
+
+function uniqueChoices(list, max) {
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const v = String(item || "").trim();
+    if (!v) continue;
+    const key = v.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function buildMcq(question, pool, rand) {
+  const correct = firstSentence(question.reference);
+  const distractors = [];
+  for (let i = 0; i < Math.min(pool.length, 80); i += 1) {
+    const candidate = pool[Math.floor(rand() * pool.length)];
+    if (!candidate || candidate.id === question.id) continue;
+    distractors.push(firstSentence(candidate.reference));
+    if (distractors.length >= 8) break;
+  }
+  const choices = uniqueChoices([correct, ...distractors], 4);
+  while (choices.length < 4) {
+    choices.push(`None of the above (review the reference).`);
+  }
+  // Shuffle but keep track of correct index.
+  const shuffled = [...choices].sort(() => rand() - 0.5);
+  const correctIndex = Math.max(0, shuffled.findIndex((c) => c === correct));
+  return { choices: shuffled, correctIndex, explanation: question.reference || "" };
+}
+
+function ensureQuestionFormatOnBank(bank, format, seedInput) {
+  if (!Array.isArray(bank) || !bank.length) return [];
+  const rand = mulberry32(hashString(seedInput));
+  const out = bank.map((q, idx) => {
+    const next = { ...q };
+    const mode = format === "mixed" ? (idx % 2 === 0 ? "mcq" : "subjective") : format;
+    next.type = mode;
+    if (mode === "mcq") {
+      const built = buildMcq(q, bank, rand);
+      next.choices = built.choices;
+      next.correctIndex = built.correctIndex;
+      next.explanation = built.explanation;
+      // Make prompt MCQ friendly.
+      next.prompt = `Select the best-supported statement based on the book: ${generatePrompt(
+        firstSentence(q.reference || q.prompt),
+        q.difficulty
+      )}`;
+    } else {
+      next.choices = undefined;
+      next.correctIndex = undefined;
+      next.explanation = q.reference || "";
+    }
+    return next;
+  });
+  return out;
+}
 
 let UserModel = null;
 let BookSessionModel = null;
@@ -226,7 +333,10 @@ function testDocFromModel(test) {
     createdBy: test.createdBy,
     createdAt: test.createdAt,
     active: test.active,
-    attempts: test.attempts || []
+    attempts: test.attempts || [],
+    topic: test.topic || null,
+    difficulty: test.difficulty || null,
+    questionFormat: test.questionFormat || "subjective"
   };
 }
 
@@ -246,7 +356,10 @@ function testFromDoc(doc) {
     createdBy: doc.createdBy,
     createdAt: doc.createdAt,
     active: doc.active,
-    attempts: doc.attempts || []
+    attempts: doc.attempts || [],
+    topic: doc.topic || null,
+    difficulty: doc.difficulty || null,
+    questionFormat: doc.questionFormat || "subjective"
   };
 }
 
@@ -269,13 +382,24 @@ function quizDocFromSession(quiz) {
     completedAt: quiz.completedAt ?? null,
     aiPublishAt: quiz.aiPublishAt ?? null,
     teacherPublishedAt: quiz.teacherPublishedAt ?? null,
+    publishCount: quiz.publishCount ?? 0,
+    lastPublishedReviewHash: quiz.lastPublishedReviewHash ?? null,
+    lastReviewEditedAt: quiz.lastReviewEditedAt ?? null,
+    teacherOverallMarks: quiz.teacherOverallMarks ?? null,
+    teacherOverallRemark: quiz.teacherOverallRemark ?? null,
     totalMarks: quiz.totalMarks ?? null,
     marksPerQuestion: quiz.marksPerQuestion ?? null,
+    topic: quiz.topic ?? null,
+    questionFormat: quiz.questionFormat ?? "subjective",
     proctor: quiz.proctor || {}
   };
 }
 
 function quizSessionFromDoc(doc) {
+  let publishCount = Number(doc.publishCount);
+  if (!Number.isFinite(publishCount) || publishCount < 0) publishCount = 0;
+  // Backward compatibility: older records may have `teacherPublishedAt` without `publishCount`.
+  if (publishCount === 0 && doc.teacherPublishedAt) publishCount = 1;
   return {
     id: doc._id,
     testId: doc.testId || null,
@@ -294,8 +418,16 @@ function quizSessionFromDoc(doc) {
     completedAt: doc.completedAt ?? null,
     aiPublishAt: doc.aiPublishAt ?? null,
     teacherPublishedAt: doc.teacherPublishedAt ?? null,
+    publishCount,
+    lastPublishedReviewHash: doc.lastPublishedReviewHash ?? null,
+    lastReviewEditedAt: doc.lastReviewEditedAt ?? null,
+    teacherOverallMarks:
+      Number.isFinite(Number(doc.teacherOverallMarks)) ? Number(doc.teacherOverallMarks) : null,
+    teacherOverallRemark: doc.teacherOverallRemark ?? null,
     totalMarks: doc.totalMarks ?? null,
     marksPerQuestion: doc.marksPerQuestion ?? null,
+    topic: doc.topic ?? null,
+    questionFormat: doc.questionFormat ?? "subjective",
     proctor: doc.proctor || { riskScore: 0, warningCount: 0, warningMessages: [], events: [] }
   };
 }
@@ -451,6 +583,27 @@ function hashString(input) {
   h = Math.imul(h ^ (h >>> 16), 2246822507);
   h = Math.imul(h ^ (h >>> 13), 3266489909);
   return (h ^= h >>> 16) >>> 0;
+}
+
+function reviewSignatureFromResponses(responses, overallMarks, overallRemark) {
+  const list = (responses || [])
+    .map((r) => {
+      const qid = String(r.questionId || "").trim();
+      const marksRaw = r.teacherMarksAwarded;
+      const marks = Number.isFinite(Number(marksRaw)) ? Number(Number(marksRaw).toFixed(2)) : null;
+      const feedback = String(r.teacherFeedback || "").trim();
+      return { qid, marks, feedback };
+    })
+    .filter((x) => x.qid)
+    .sort((a, b) => a.qid.localeCompare(b.qid));
+
+  const payload = {
+    responses: list,
+    overallMarks: Number.isFinite(Number(overallMarks)) ? Number(Number(overallMarks).toFixed(2)) : null,
+    overallRemark: String(overallRemark || "").trim() || null
+  };
+
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
 function mulberry32(seed) {
@@ -655,7 +808,8 @@ function evaluateAnswer(answer, question) {
       keywordCoverage: Number(keywordCoverage.toFixed(3)),
       jaccard: Number(jaccard.toFixed(3))
     },
-    feedback
+    feedback,
+    explanation: question.reference || ""
   };
 }
 
@@ -664,6 +818,8 @@ function questionPayload(question, index, total) {
     id: question.id,
     prompt: question.prompt,
     difficulty: question.difficulty,
+    type: question.type || "subjective",
+    choices: Array.isArray(question.choices) ? question.choices : null,
     number: index,
     total
   };
@@ -883,7 +1039,7 @@ async function createBookSession(files, ownerId) {
   return session;
 }
 
-function createQuizSession({ bookSession, studentId, initialLevel, questionCount, testId, durationMinutes }) {
+function createQuizSession({ bookSession, studentId, initialLevel, questionCount, testId, durationMinutes, topic, questionFormat }) {
   const safeLevel = LEVEL_INDEX[initialLevel] !== undefined ? initialLevel : "intermediate";
   const safeQuestionCount = Math.min(Math.max(Number(questionCount) || 8, 4), 20);
 
@@ -893,7 +1049,9 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
   const seed = hashString(`${studentId || "anon"}_${bookSession.id}_${flowOrdinal}`);
   const rand = mulberry32(seed);
 
-  let shuffled = [...bookSession.questionBank].sort(() => rand() - 0.5);
+  const format = normalizeQuestionFormat(questionFormat);
+  const topicFiltered = filterBankByTopic(bookSession.questionBank || [], topic);
+  let shuffled = [...topicFiltered].sort(() => rand() - 0.5);
   const flowFingerprintLength = Math.min(safeQuestionCount, 8);
   const usedFingerprints = bookSession.issuedFlowFingerprints || new Set();
 
@@ -912,6 +1070,13 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
   bookSession.issuedFlowFingerprints = usedFingerprints;
   // Persist updated flow state so student flows stay unique after restart.
   persistBookSession(bookSession).catch(() => {});
+
+  // Apply question format (subjective/mcq/mixed) deterministically for this flow.
+  shuffled = ensureQuestionFormatOnBank(
+    shuffled,
+    format,
+    `${studentId || "anon"}_${bookSession.id}_${flowOrdinal}_${format}`
+  );
 
   const quizId = uuidv4();
   const startedAt = Date.now();
@@ -932,8 +1097,15 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
     startedAt,
     deadlineAt,
     completed: false,
+    publishCount: 0,
+    lastPublishedReviewHash: null,
+    lastReviewEditedAt: null,
+    teacherOverallMarks: null,
+    teacherOverallRemark: null,
     totalMarks: null,
     marksPerQuestion: null,
+    topic: String(topic || "").trim() || null,
+    questionFormat: format,
     proctor: {
       riskScore: 0,
       warningCount: 0,
@@ -979,24 +1151,44 @@ function buildResult(quizSession) {
   const mean = (list) =>
     list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : null;
 
+  const effectiveMarksObtained = (() => {
+    if (quizSession.teacherPublishedAt && Number.isFinite(Number(quizSession.teacherOverallMarks))) {
+      return Number(Number(quizSession.teacherOverallMarks).toFixed(2));
+    }
+    if (typeof quizSession.totalMarks !== "number") return null;
+    const obtained =
+      quizSession.responses.reduce((sum, r) => {
+        const effective =
+          quizSession.teacherPublishedAt && typeof r.teacherMarksAwarded === "number"
+            ? r.teacherMarksAwarded
+            : r.marksAwarded;
+        return sum + (Number(effective) || 0);
+      }, 0) || 0;
+    return Number(obtained.toFixed(2));
+  })();
+
+  const marksPercent = (() => {
+    if (typeof quizSession.totalMarks !== "number" || !quizSession.totalMarks) return null;
+    const obtained = effectiveMarksObtained ?? 0;
+    return Math.max(0, Math.min(100, Number(((obtained / quizSession.totalMarks) * 100).toFixed(2))));
+  })();
+
+  const scoreForRemark = marksPercent ?? Number(avg.toFixed(2));
+  const remark = (() => {
+    if (scoreForRemark >= 90) return { label: "Outstanding", emoji: "🏆" };
+    if (scoreForRemark >= 75) return { label: "Great work", emoji: "🔥" };
+    if (scoreForRemark >= 60) return { label: "Good progress", emoji: "✅" };
+    if (scoreForRemark >= 40) return { label: "Needs improvement", emoji: "📘" };
+    return { label: "Critical: revise basics", emoji: "⚠️" };
+  })();
+
   return {
     totalQuestions: quizSession.responses.length,
     averagePercentage: Number(avg.toFixed(2)),
     totalMarks: quizSession.totalMarks ?? null,
-    marksObtained:
-      typeof quizSession.totalMarks === "number"
-        ? Number(
-            quizSession.responses
-              .reduce((sum, r) => {
-                const effective =
-                  quizSession.teacherPublishedAt && typeof r.teacherMarksAwarded === "number"
-                    ? r.teacherMarksAwarded
-                    : r.marksAwarded;
-                return sum + (Number(effective) || 0);
-              }, 0)
-              .toFixed(2)
-          )
-        : null,
+    marksObtained: typeof quizSession.totalMarks === "number" ? effectiveMarksObtained : null,
+    teacherOverallRemark: quizSession.teacherOverallRemark ?? null,
+    remark,
     levelProgression: {
       started: quizSession.initialLevel,
       ended: quizSession.currentLevel
@@ -1109,7 +1301,10 @@ function compactTestPayload(test) {
     startsAt: test.startsAt,
     createdAt: test.createdAt,
     createdBy: test.createdBy,
-    bookSessionId: test.bookSessionId
+    bookSessionId: test.bookSessionId,
+    topic: test.topic || null,
+    difficulty: test.difficulty || null,
+    questionFormat: test.questionFormat || "subjective"
   };
 }
 
@@ -1270,6 +1465,9 @@ app.get("/api/users/me/quizzes", authRequired, async (req, res) => {
     testId: q.testId || null,
     testTitle: q.testId ? tests.get(q.testId)?.title || null : null,
     joinCode: q.testId ? tests.get(q.testId)?.joinCode || null : null,
+    topic: q.testId ? tests.get(q.testId)?.topic || null : null,
+    difficulty: q.testId ? tests.get(q.testId)?.difficulty || null : null,
+    questionFormat: q.testId ? tests.get(q.testId)?.questionFormat || null : (q.questionFormat || null),
     startedAt: q.startedAt,
     deadlineAt: q.deadlineAt,
     completed: Boolean(q.completed),
@@ -1368,6 +1566,151 @@ app.patch("/api/admin/users/:userId/role", authRequired, requireRoles("admin"), 
   return res.json({ user: sanitizeUser(user) });
 });
 
+async function deleteTestEverywhere(testId, opts = {}) {
+  const wipeHistory = opts.wipeHistory !== false;
+
+  // Ensure in-memory has latest view.
+  let test = tests.get(testId) || null;
+  if (!test && dbReady && TestModel) {
+    const doc = await TestModel.findById(testId).lean();
+    if (doc) {
+      test = testFromDoc(doc);
+      tests.set(test.id, test);
+    }
+  }
+  if (!test && !dbReady) {
+    await loadFileStore();
+    const stored = findById(fileStore.tests, testId);
+    if (stored) {
+      test = testFromDoc(stored);
+      tests.set(test.id, test);
+    }
+  }
+  if (!test) return { ok: false, reason: "not_found" };
+
+  const joinCode = test.joinCode;
+
+  // Find all quizIds for this test.
+  const quizIds = new Set();
+  (test.attempts || []).forEach((a) => a?.quizId && quizIds.add(a.quizId));
+  [...quizSessions.values()].forEach((q) => {
+    if (q?.testId === testId) quizIds.add(q.id);
+  });
+
+  if (dbReady && TestModel && QuizSessionModel) {
+    // DB delete: quiz sessions then test
+    await QuizSessionModel.deleteMany({ testId });
+    await TestModel.deleteOne({ _id: testId });
+
+    if (wipeHistory && UserHistoryModel) {
+      const quizList = [...quizIds.values()];
+      const or = [{ "payload.testId": testId }, { "payload.joinCode": joinCode }];
+      if (quizList.length) or.push({ "payload.quizId": { $in: quizList } });
+      await UserHistoryModel.deleteMany({ $or: or }).catch(() => {});
+    }
+  } else {
+    await queueFileStoreWrite(async () => {
+      fileStore.tests = (fileStore.tests || []).filter((t) => (t?._id || t?.id) !== testId);
+      fileStore.quizSessions = (fileStore.quizSessions || []).filter((q) => q?.testId !== testId);
+      if (wipeHistory) {
+        const quizList = [...quizIds.values()];
+        fileStore.history = (fileStore.history || []).filter((h) => {
+          const p = h?.payload || {};
+          if (p?.testId === testId) return false;
+          if (joinCode && p?.joinCode === joinCode) return false;
+          if (quizList.length && p?.quizId && quizList.includes(p.quizId)) return false;
+          return true;
+        });
+      }
+    });
+  }
+
+  // In-memory cleanup
+  tests.delete(testId);
+  quizIds.forEach((id) => quizSessions.delete(id));
+
+  return { ok: true, testId, removedQuizIds: [...quizIds.values()] };
+}
+
+app.get("/api/admin/tests", authRequired, requireRoles("admin"), async (_req, res) => {
+  const respond = async () => {
+    if (dbReady && TestModel) {
+      const docs = await TestModel.find({}).sort({ createdAt: -1 }).lean();
+      return res.json({
+        tests: docs.map((d) => {
+          const t = testFromDoc(d);
+          return { ...compactTestPayload(t), attempts: (t.attempts || []).length };
+        })
+      });
+    }
+    return res.json({
+      tests: [...tests.values()]
+        .map((t) => ({ ...compactTestPayload(t), attempts: (t.attempts || []).length }))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    });
+  };
+  respond().catch((error) => res.status(500).json({ error: error.message || "Failed to list tests." }));
+});
+
+app.delete("/api/admin/tests/:testId", authRequired, requireRoles("admin"), async (req, res) => {
+  const wipeHistory = String(req.query?.wipeHistory || "true").toLowerCase() !== "false";
+  try {
+    const out = await deleteTestEverywhere(req.params.testId, { wipeHistory });
+    if (!out.ok && out.reason === "not_found") return res.status(404).json({ error: "Test not found." });
+    await logHistory(req.user.id, "admin_test_deleted", { testId: req.params.testId, wipeHistory });
+    return res.json({ ok: true, testId: req.params.testId });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to delete test." });
+  }
+});
+
+app.post("/api/admin/reset", authRequired, requireRoles("admin"), async (req, res) => {
+  const scope = String(req.body?.scope || "data").toLowerCase(); // data|all
+  const wipeUsers = scope === "all";
+
+  try {
+    if (dbReady && mongoose) {
+      // Wipe platform data (but keep users by default).
+      await BookSessionModel.deleteMany({});
+      await TestModel.deleteMany({});
+      await QuizSessionModel.deleteMany({});
+      if (UserHistoryModel) await UserHistoryModel.deleteMany({});
+      if (wipeUsers && UserModel) {
+        await UserModel.deleteMany({ _id: { $ne: req.user.id } });
+      }
+    } else {
+      await queueFileStoreWrite(async () => {
+        fileStore.bookSessions = [];
+        fileStore.tests = [];
+        fileStore.quizSessions = [];
+        fileStore.history = [];
+        if (wipeUsers) {
+          fileStore.users = (fileStore.users || []).filter((u) => (u?.id || u?._id) === req.user.id);
+        }
+      });
+    }
+
+    // In-memory reset
+    bookSessions.clear();
+    tests.clear();
+    quizSessions.clear();
+    if (wipeUsers) {
+      const keep = users.get(req.user.id);
+      users.clear();
+      usersByEmail.clear();
+      if (keep) {
+        users.set(keep.id, keep);
+        usersByEmail.set(keep.email, keep.id);
+      }
+    }
+
+    await logHistory(req.user.id, "admin_reset", { scope });
+    return res.json({ ok: true, scope });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Reset failed." });
+  }
+});
+
 app.post("/api/books/upload", authRequired, requireRoles("teacher", "admin"), upload.array("books", MAX_BOOK_FILES), async (req, res) => {
   try {
     const files = req.files || [];
@@ -1434,7 +1777,10 @@ app.post("/api/tests", authRequired, requireRoles("teacher", "admin"), async (re
     totalMarks,
     examMode, // backward compat (older clients)
     startsAt,
-    initialLevel = "intermediate"
+    initialLevel = "intermediate",
+    difficulty,
+    topic,
+    questionFormat
   } = req.body || {};
 
   const bookSession = bookSessions.get(bookSessionId);
@@ -1456,8 +1802,15 @@ app.post("/api/tests", authRequired, requireRoles("teacher", "admin"), async (re
   );
   const total = Math.min(Math.max(Number(totalMarks) || 100, 10), 1000);
   const marksPerQuestion = Number((total / questions).toFixed(2));
-  const level = LEVEL_INDEX[initialLevel] !== undefined ? initialLevel : "intermediate";
+  const mapped = mapDifficultyToLevel(difficulty);
+  const level = LEVEL_INDEX[mapped || initialLevel] !== undefined ? (mapped || initialLevel) : "intermediate";
+  const difficultyLabel = DIFFICULTY_LABELS.includes(String(difficulty || "").toLowerCase())
+    ? String(difficulty).toLowerCase()
+    : mapped
+      ? ({ beginner: "easy", intermediate: "medium", advanced: "hard" }[mapped] || null)
+      : null;
   const startIso = startsAt ? new Date(startsAt).toISOString() : new Date().toISOString();
+  const format = normalizeQuestionFormat(questionFormat);
 
   const id = uuidv4();
   const joinCode = randomJoinCode();
@@ -1476,7 +1829,10 @@ app.post("/api/tests", authRequired, requireRoles("teacher", "admin"), async (re
     createdBy: req.user.id,
     createdAt: new Date().toISOString(),
     active: true,
-    attempts: []
+    attempts: [],
+    topic: String(topic || "").trim() || null,
+    difficulty: difficultyLabel,
+    questionFormat: format
   };
 
   tests.set(id, test);
@@ -1524,6 +1880,9 @@ app.get("/api/tests/open", authRequired, requireRoles("student", "admin"), (_req
       durationMinutes: test.durationMinutes,
       questionCount: test.questionCount,
       totalMarks: test.totalMarks,
+      topic: test.topic || null,
+      difficulty: test.difficulty || null,
+      questionFormat: test.questionFormat || "subjective",
       startsAt: test.startsAt,
       createdAt: test.createdAt
     }));
@@ -1540,6 +1899,18 @@ app.patch("/api/tests/:testId", authRequired, requireRoles("teacher", "admin"), 
   const patch = req.body || {};
   if (typeof patch.title === "string" && patch.title.trim()) test.title = patch.title.trim();
   if (patch.active !== undefined) test.active = Boolean(patch.active);
+  if (patch.topic !== undefined) test.topic = String(patch.topic || "").trim() || null;
+  if (patch.questionFormat !== undefined) test.questionFormat = normalizeQuestionFormat(patch.questionFormat);
+  if (patch.difficulty !== undefined) {
+    const mapped = mapDifficultyToLevel(patch.difficulty);
+    const lvl = LEVEL_INDEX[mapped || patch.difficulty] !== undefined ? (mapped || patch.difficulty) : null;
+    if (lvl) {
+      test.initialLevel = lvl;
+      test.difficulty = DIFFICULTY_LABELS.includes(String(patch.difficulty || "").toLowerCase())
+        ? String(patch.difficulty).toLowerCase()
+        : ({ beginner: "easy", intermediate: "medium", advanced: "hard" }[lvl] || null);
+    }
+  }
   if (patch.startsAt) test.startsAt = new Date(patch.startsAt).toISOString();
   if (patch.durationMinutes) {
     test.durationMinutes = Math.min(Math.max(Number(patch.durationMinutes) || test.durationMinutes, 5), 180);
@@ -1638,7 +2009,9 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
       initialLevel: test.initialLevel,
       questionCount: test.questionCount,
       testId: test.id,
-      durationMinutes: test.durationMinutes
+      durationMinutes: test.durationMinutes,
+      topic: test.topic,
+      questionFormat: test.questionFormat
     });
     quizSession.totalMarks = test.totalMarks;
     quizSession.marksPerQuestion = test.marksPerQuestion;
@@ -1720,17 +2093,41 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     });
   }
 
-  const answer = String(req.body?.answer || "");
-  if (answer.trim().length < 10) {
-    return res.status(400).json({ error: "Answer is too short for subjective evaluation." });
-  }
-
   const currentQuestion = quizSession.questionBank.find((q) => q.id === quizSession.currentQuestionId);
   if (!currentQuestion) {
     return res.status(400).json({ error: "No active question found." });
   }
 
-  const baseEvaluation = evaluateAnswer(answer, currentQuestion);
+  const isMcq = (currentQuestion.type || "subjective") === "mcq";
+  const answer = String(req.body?.answer || "");
+  const mcqChoiceRaw = req.body?.mcqChoice;
+
+  if (isMcq) {
+    const choice = Number(mcqChoiceRaw);
+    if (!Number.isFinite(choice) || choice < 0 || choice >= (currentQuestion.choices || []).length) {
+      return res.status(400).json({ error: "Invalid MCQ choice." });
+    }
+  } else {
+    if (answer.trim().length < 10) {
+      return res.status(400).json({ error: "Answer is too short for subjective evaluation." });
+    }
+  }
+
+  const baseEvaluation = isMcq
+    ? (() => {
+        const choice = Number(mcqChoiceRaw);
+        const correctIndex = Number(currentQuestion.correctIndex);
+        const correct = Number.isFinite(correctIndex) ? choice === correctIndex : false;
+        const percentage = correct ? 100 : 0;
+        const feedback = correct ? "Correct. Good selection based on the reference." : "Incorrect. Re-check the concept in the reference text.";
+        return {
+          percentage,
+          details: { correct, choice, correctIndex: Number.isFinite(correctIndex) ? correctIndex : null },
+          feedback,
+          explanation: currentQuestion.explanation || currentQuestion.reference || ""
+        };
+      })()
+    : evaluateAnswer(answer, currentQuestion);
   const cheatingPenalty = Math.floor(quizSession.proctor.riskScore / 35) * 4;
   const adjustedPercentage = Math.max(0, baseEvaluation.percentage - cheatingPenalty);
 
@@ -1754,11 +2151,14 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
   quizSession.responses.push({
     questionId: currentQuestion.id,
     difficulty: currentQuestion.difficulty,
-    answer,
+    answer: isMcq ? "" : answer,
+    mcqChoice: isMcq ? Number(mcqChoiceRaw) : null,
+    mcqCorrectIndex: isMcq ? (Number.isFinite(Number(currentQuestion.correctIndex)) ? Number(currentQuestion.correctIndex) : null) : null,
     percentage: evaluation.percentage,
     details: evaluation.details,
     cheatingPenalty,
-    marksAwarded
+    marksAwarded,
+    explanation: evaluation.explanation || null
   });
 
   quizSession.currentLevel = adjustLevel(quizSession.currentLevel, evaluation.percentage);
@@ -1844,12 +2244,16 @@ app.get("/api/quizzes/:quizId", authRequired, async (req, res) => {
   const now = Date.now();
   const aiReady = !quizSession.aiPublishAt || now >= quizSession.aiPublishAt;
   const teacherReady = Boolean(quizSession.teacherPublishedAt);
+  const publishLimit = 3;
 
   const isOwnerStudent = req.user.id === quizSession.studentId && req.user.role === "student";
   const canSeeAi = !isOwnerStudent || aiReady || teacherReady;
 
   const questionById = new Map(
-    (quizSession.questionBank || []).map((q) => [q.id, { id: q.id, prompt: q.prompt, difficulty: q.difficulty }])
+    (quizSession.questionBank || []).map((q) => [
+      q.id,
+      { id: q.id, prompt: q.prompt, difficulty: q.difficulty, type: q.type || "subjective", choices: q.choices || null }
+    ])
   );
 
   return res.json({
@@ -1860,19 +2264,26 @@ app.get("/api/quizzes/:quizId", authRequired, async (req, res) => {
       completedAt: quizSession.completedAt ?? null,
       aiPublishAt: quizSession.aiPublishAt ?? null,
       teacherPublishedAt: quizSession.teacherPublishedAt ?? null,
-      canSeeAi
+      canSeeAi,
+      publishCount: Number(quizSession.publishCount) || 0,
+      publishLimit,
+      lastReviewEditedAt: quizSession.lastReviewEditedAt ?? null
     },
     marks: {
       totalMarks: quizSession.totalMarks ?? null,
-      marksPerQuestion: quizSession.marksPerQuestion ?? null
+      marksPerQuestion: quizSession.marksPerQuestion ?? null,
+      teacherOverallMarks: quizSession.teacherOverallMarks ?? null,
+      teacherOverallRemark: quizSession.teacherOverallRemark ?? null
     },
     responses: (quizSession.responses || []).map((r, idx) => ({
       index: idx + 1,
       question: questionById.get(r.questionId) || { id: r.questionId, prompt: "(Question unavailable)", difficulty: r.difficulty },
       answer: r.answer,
+      mcqChoice: r.mcqChoice ?? null,
       // Hide AI scores until publish window for students.
       percentage: canSeeAi ? r.percentage : null,
       marksAwarded: canSeeAi ? r.marksAwarded ?? null : null,
+      explanation: canSeeAi ? r.explanation ?? null : null,
       teacherMarksAwarded: r.teacherMarksAwarded ?? null,
       teacherFeedback: r.teacherFeedback ?? null
     }))
@@ -1897,6 +2308,7 @@ app.get("/api/tests/:testId/attempts", authRequired, requireRoles("teacher", "ad
       startedAt: a.startedAt,
       completed: Boolean(quiz?.completed),
       teacherPublishedAt: quiz?.teacherPublishedAt ?? null,
+      publishCount: Number(quiz?.publishCount) || 0,
       aiPublishAt: quiz?.aiPublishAt ?? null
     };
   });
@@ -1917,6 +2329,18 @@ app.patch("/api/quizzes/:quizId/review", authRequired, requireRoles("teacher", "
 
   const updates = Array.isArray(req.body?.responses) ? req.body.responses : [];
   const publishFinal = Boolean(req.body?.publishFinal);
+  const teacherOverallMarksRaw = req.body?.teacherOverallMarks;
+  const teacherOverallRemarkRaw = req.body?.teacherOverallRemark;
+
+  const baselinePublishedSig =
+    quizSession.lastPublishedReviewHash ||
+    (quizSession.teacherPublishedAt
+      ? reviewSignatureFromResponses(
+          quizSession.responses || [],
+          quizSession.teacherOverallMarks,
+          quizSession.teacherOverallRemark
+        )
+      : null);
 
   const byQ = new Map(updates.map((u) => [u.questionId, u]));
   quizSession.responses = (quizSession.responses || []).map((r) => {
@@ -1931,14 +2355,66 @@ app.patch("/api/quizzes/:quizId/review", authRequired, requireRoles("teacher", "
     return next;
   });
 
+  if (teacherOverallMarksRaw !== undefined) {
+    const raw = teacherOverallMarksRaw;
+    if (raw === null || String(raw).trim() === "") {
+      quizSession.teacherOverallMarks = null;
+    } else {
+      const n = Number(raw);
+      quizSession.teacherOverallMarks = Number.isFinite(n) ? Math.max(0, n) : quizSession.teacherOverallMarks;
+    }
+  }
+  if (teacherOverallRemarkRaw !== undefined) {
+    quizSession.teacherOverallRemark = String(teacherOverallRemarkRaw || "").trim() || null;
+  }
+
+  quizSession.lastReviewEditedAt = Date.now();
+
   if (publishFinal) {
+    if (!quizSession.completed) {
+      return res.status(400).json({ error: "Cannot publish before the student completes the test." });
+    }
+    if (!Number.isFinite(Number(quizSession.teacherOverallMarks))) {
+      return res.status(400).json({ error: "Overall marks are required before publishing." });
+    }
+
+    const publishLimit = 3;
+    const publishCount = Number(quizSession.publishCount) || 0;
+    if (publishCount >= publishLimit) {
+      return res.status(409).json({ error: "Republish limit reached (3/3). No further publishing allowed." });
+    }
+
+    const signature = reviewSignatureFromResponses(
+      quizSession.responses || [],
+      quizSession.teacherOverallMarks,
+      quizSession.teacherOverallRemark
+    );
+    const lastSig = baselinePublishedSig || null;
+
+    if (publishCount > 0 && lastSig && signature === lastSig) {
+      return res.status(409).json({ error: "No changes detected since last publish. Edit the review to republish." });
+    }
+
     quizSession.teacherPublishedAt = Date.now();
+    quizSession.publishCount = publishCount + 1;
+    quizSession.lastPublishedReviewHash = signature;
   }
 
   await persistQuizSession(quizSession);
-  await logHistory(req.user.id, "teacher_review", { quizId: quizSession.id, publishFinal });
+  await logHistory(req.user.id, "teacher_review", {
+    quizId: quizSession.id,
+    publishFinal,
+    publishCount: Number(quizSession.publishCount) || 0
+  });
 
-  return res.json({ ok: true, quizId: quizSession.id, teacherPublishedAt: quizSession.teacherPublishedAt ?? null });
+  return res.json({
+    ok: true,
+    quizId: quizSession.id,
+    teacherPublishedAt: quizSession.teacherPublishedAt ?? null,
+    publishCount: Number(quizSession.publishCount) || 0,
+    publishLimit: 3,
+    lastReviewEditedAt: quizSession.lastReviewEditedAt ?? null
+  });
 });
 
 // Backward compatible demo endpoints
