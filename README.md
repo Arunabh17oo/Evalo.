@@ -7,69 +7,49 @@ This project is structured exactly in two folders:
 
 ## What it does
 
-- App branding and main UI upgraded to **Evalo** with large glassmorphism layout.
-- Animated **3D background** + **5D-style layered animated Evalo logo**.
-- Signup/Login modal UI (glassmorphism) that re-prompts periodically.
-- Role-based system:
-  - `admin`: manage users and set role (`student` / `teacher` / `admin`)
-  - `teacher`: upload books and create tests
-  - `student`: join test and answer subjective questions
-- Upload **1 or more books** (PDF/TXT, up to 5 files).
-- Test creation supports:
-  - total marks (marks per question computed automatically)
-  - custom duration
-  - custom question count
-  - initial difficulty level
-- Unique student question flow with adaptive difficulty progression.
-- Subjective answer scoring in percentage using NLP-style metrics:
-  - cosine similarity
-  - keyword coverage
-  - jaccard overlap
-- Proctoring workflow on test join:
-  - fullscreen request
-  - camera + mic permission request
-  - copy/paste/context menu restrictions
-  - AI-style risk scoring from suspicious events with live warnings
+- **Branding & Logo**: Integrated the official **Evalo Logo** (Lightbulb with question mark) across the platform:
+  - Hero section on landing page
+  - Fixed Top Navigation bar
+  - Login/Signup Auth Modal
+- **Animated UI**: Large glassmorphism layout with a simplified **Logo5D** (clean 3D text) and interactive background.
+- **Role-based System**:
+  - `admin`: Manage users and set roles (`student` / `teacher` / `admin`).
+  - `teacher`: Upload books, create tests, review student answers, and download reports.
+  - `student`: Join tests using codes and answer subjective questions.
+- **AI Scoring System**: Automated grading based on three NLP metrics:
+  - **Cosine Similarity (50%)**: Semantic alignment with reference.
+  - **Keyword Coverage (30%)**: Technical term detection.
+  - **Jaccard Score (20%)**: Vocabulary overlap analysis.
+- **Proctoring Suite**:
+  - Fullscreen enforcement and camera/mic tracking.
+  - Prevention of copy/paste, right-click, and tab switching.
+  - Live AI risk scoring based on suspicious behavior.
 
-## UI Features
+## NEW Features & Improvements
 
-### Landing Page
-- **Centered Layout**: All content is perfectly centered with professional spacing
-- **Fixed Top Navigation**: Logo on left, Login/Sign Up button on right (standard website pattern)
-- **3D Animated Background**: 
-  - 40+ floating particles with varied colors and sizes
-  - 3 pulsing spheres with animated scale effects
-  - 4 energy rings with rotation animations
-  - 2,500 stars for rich starfield background
-  - Color-shifting lights with dynamic intensity
+### Teacher Management Tools
+- **Clear History**: Teachers can now clear all student attempt history for a specific test with one click (includes safety confirmation).
+- **Recent Sessions**: The "Uploaded Book Sessions" list is now limited to the **Top 3 most recent** uploads for a cleaner workspace.
+- **Finalized Hide**: Attempts published 3 times (Finalized) are automatically hidden from the active review list.
 
-### Premium Visual Effects
-- **Gradient Text**: Animated color-shifting gradient on main heading (cyan to blue)
-- **Glassmorphism**: Backdrop blur effects on cards, modals, and navigation
-- **Floating Gradient Orbs**: Ambient background lighting effects
-- **Feature Cards**: 3D hover transforms with glow effects
-- **Interactive Pills**: Clickable feature pills with hover animations
-- **Premium CTA Buttons**: Gradient backgrounds with glow effects on hover
+### Submission Workflow
+- **Submission Status**: Clear pill indicators for both Teachers and Students:
+  - 🟢 **Submitted**: Test completed by student.
+  - 🔴 **Needs Review**: Awaiting teacher evaluation.
+  - 🔵 **Published/Finalized**: Results released to student.
+- **Improved CTA**: The "Get Started Free" button on the hero section now intelligently scrolls to the Features section, ensuring a smooth navigation flow for logged-in users.
 
-### Interactive Features
-- **Feature Pills with Login Protection**:
-  - 📹 Camera + Mic Proctoring
-  - 🖥️ Auto Fullscreen Enforcement
-  - 🤖 AI-Powered Evaluation
-  - ⚡ Real-time Analytics
-  - Non-logged-in users: Clicking shows login prompt with specific error message
-  - Logged-in users: Clicking scrolls to relevant features section
+### PDF Export (Student Reports)
+- **One-Click Download**: Teachers can download a professional PDF report for any published attempt.
+- **Simplified 3-Column Layout**: High-level summary featuring:
+  - **Student Name**
+  - **AI Score** (Total Marks + %)
+  - **Teacher Score** (Total Marks + %)
+- **Conditional Visibility**: The PDF download button appears only after the teacher has reviewed and published the test results.
 
-### Stats & Capabilities
-- **4 Large Stat Cards**: AI-Powered, Real-time, Secure, Smart with gradient text
-- **3 Feature Cards**: Adaptive Assessment, Advanced Proctoring, Intelligent Analytics
-- **Smooth Animations**: Entrance animations using Framer Motion
-- **Responsive Design**: Optimized for desktop, tablet, and mobile
-
-## Marks
-
-- Teacher sets `Total Marks` during test creation.
-- Backend computes `marksPerQuestion = totalMarks / questionCount` and returns marks earned per answer along with % correctness.
+## Quick Links
+- **Documentation**: [AI Scoring System Details](file:///Users/smacair/.gemini/antigravity/brain/9b51d98e-898d-49bb-b5c8-7093b90b878c/ai_scoring_documentation.md)
+- **Implementation Walkthrough**: [Recent Feature Updates](file:///Users/smacair/.gemini/antigravity/brain/9b51d98e-898d-49bb-b5c8-7093b90b878c/walkthrough.md)
 
 ## Run backend
 
@@ -79,23 +59,7 @@ npm install
 npm run dev
 ```
 
-Backend default is `http://localhost:5050` (fallback to next port if busy).
-
-Seeded admin credentials for first login:
-
-- Email: `admin@evalo.ai`
-- Password: `admin123`
-
-## Persistence (User Data + History)
-
-Evalo saves user/test/quiz data by user ID and keeps an activity history.
-
-1. Default (works offline): file store
-   - Stored at `Backend/data/store.json`
-2. Optional: MongoDB
-   - Configure `Backend/.env` with `MONGODB_URI`
-   - Install dependencies and restart backend
-   - When MongoDB is connected, `GET /api/health` returns `dbReady: true`
+Backend default is `http://localhost:5050`. Seeded admin: `admin@evalo.ai` / `admin123`.
 
 ## Run frontend
 
@@ -105,17 +69,8 @@ npm install
 npm run dev
 ```
 
-Frontend runs on Vite default `http://localhost:5173` and calls backend at `http://localhost:5050/api`.
+Frontend runs on `http://localhost:5173`. Uses `jspdf` and `jspdf-autotable` for report generation.
 
-If needed, set:
-
-```bash
-VITE_API_BASE=http://localhost:5050/api
-```
-
-## Notes
-
-- Browsers cannot silently force camera/mic; Evalo requests permissions and raises proctoring risk warnings when denied.
-- Fullscreen can also be exited by user/browser; this is tracked and flagged in proctoring events.
-- The landing page features a modern, premium design with 3D animations and glassmorphism effects.
-- All interactive elements include login protection to ensure secure access to features.
+## Persistence
+- **File Store**: Data saved locally at `Backend/data/store.json`.
+- **MongoDB**: Optional support by configuring `.env` with `MONGODB_URI`.
