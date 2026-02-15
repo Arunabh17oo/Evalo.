@@ -1,75 +1,60 @@
-# Evalo - Adaptive AI Exam Platform (3D UI + Proctoring)
+# Evalo - Adaptive AI Exam Platform (OpenAI + Proctoring)
 
-This project is structured exactly in two folders:
+Evalo is a premium, AI-powered examination platform designed for subjective and objective assessment with intelligent proctoring and real-time result synchronization.
 
-- `Frontend`
-- `Backend`
+## 🚀 Core Features
 
-## What it does
-
-- **Branding & Logo**: Integrated the official **Evalo Logo** (Lightbulb with question mark) across the platform:
-  - Hero section on landing page
-  - Fixed Top Navigation bar
-  - Login/Signup Auth Modal
-- **Animated UI**: Large glassmorphism layout with a simplified **Logo5D** (clean 3D text) and interactive background.
-- **Role-based System**:
-  - `admin`: Manage users and set roles (`student` / `teacher` / `admin`).
-  - `teacher`: Upload books, create tests, review student answers, and download reports.
-  - `student`: Join tests using codes and answer subjective questions.
-- **AI Scoring System**: Automated grading based on three NLP metrics:
-  - **Cosine Similarity (50%)**: Semantic alignment with reference.
-  - **Keyword Coverage (30%)**: Technical term detection.
-  - **Jaccard Score (20%)**: Vocabulary overlap analysis.
-- **Proctoring Suite**:
+- **Hybrid AI Scoring Engine**: 
+  - **OpenAI Integration**: High-precision subjective answer evaluation with contextual reasoning and sentiment analysis.
+  - **Local NLP Fallback**: Robust local similarity metrics (Cosine, Jaccard, Keyword Coverage) for offline or fallback grading.
+- **Premium UI/UX**: 
+  - Glassmorphic design with a 3D-simulated logo.
+  - Responsive layout optimized for both student examination and teacher administration.
+- **Strict Role-Based Ecosystem**:
+  - **Admin**: Dedicated **Admin Control Center** for user role management, system auditing, and platform maintenance.
+  - **Teacher**: **Teacher Hub** for book indexing (RAG foundation), test creation, bulk publication, and manual result overrides.
+  - **Student**: Intuitive exam interface with real-time **Score Synchronization** (polling + manual sync) once marks are published.
+- **Advanced Proctoring Suite**:
   - Fullscreen enforcement and camera/mic tracking.
   - Prevention of copy/paste, right-click, and tab switching.
-  - Live AI risk scoring based on suspicious behavior.
+  - Live AI risk scoring based on suspicious behavior detection.
 
-## NEW Features & Improvements
+## 🔄 Results & Synchronization
+Evalo ensures students see their results the moment they are ready:
+- **Background Polling**: Student result dashboards automatically refresh every 30 seconds if marks are pending.
+- **Manual Sync**: A "Refresh Scores" button is available for instant synchronization.
+- **Bulk Publish**: Teachers can publish scores for multiple students at once, making large-scale grading efficient.
 
-### Teacher Management Tools
-- **Clear History**: Teachers can now clear all student attempt history for a specific test with one click (includes safety confirmation).
-- **Finalized Hide**: Attempts published 3 times (Finalized) are automatically hidden from the active review list.
+## 📊 Analytics & Reporting
+- **Question-wise Analysis**: Detailed AI feedback for every student response.
+- **Teacher Dashboard**: High-level overview of class performance and attempt statuses.
+- **PDF Reports**: Professional 3-column PDF reports (Name, AI Score, Teacher Score) generated using `jspdf-autotable`.
 
-### Submission Workflow
-- **Submission Status**: Clear pill indicators for both Teachers and Students:
-  - 🟢 **Submitted**: Test completed by student.
-  - 🔴 **Needs Review**: Awaiting teacher evaluation.
-  - 🔵 **Published/Finalized**: Results released to student.
-- **Improved CTA**: The "Get Started Free" button on the hero section now intelligently scrolls to the Features section, ensuring a smooth navigation flow for logged-in users.
+## 🛠️ Getting Started
 
-### PDF Export (Student Reports)
-- **One-Click Download**: Teachers can download a professional PDF report for any published attempt.
-- **Simplified 3-Column Layout**: High-level summary featuring:
-  - **Student Name**
-  - **AI Score** (Total Marks + %)
-  - **Teacher Score** (Total Marks + %)
-- **Conditional Visibility**: The PDF download button appears only after the teacher has reviewed and published the test results.
-
-## Quick Links
-- **Documentation**: [AI Scoring System Details](file:///Users/smacair/.gemini/antigravity/brain/9b51d98e-898d-49bb-b5c8-7093b90b878c/ai_scoring_documentation.md)
-- **Implementation Walkthrough**: [Recent Feature Updates](file:///Users/smacair/.gemini/antigravity/brain/9b51d98e-898d-49bb-b5c8-7093b90b878c/walkthrough.md)
-
-## Run backend
-
+### Backend Setup
 ```bash
 cd Backend
 npm install
 npm run dev
 ```
+- **Default Port**: `5050`
+- **Authentication**: JWT-based. Seeded admin: `admin@evalo.ai` / `admin123`.
+- **Database**: Supports local `store.json` persistence or MongoDB (configured via `.env`).
 
-Backend default is `http://localhost:5050`. Seeded admin: `admin@evalo.ai` / `admin123`.
-
-## Run frontend
-
+### Frontend Setup
 ```bash
 cd Frontend
 npm install
 npm run dev
 ```
+- **Default URL**: `http://localhost:5173`
+- **Tech Stack**: React, Vite, Framer Motion, Axios, jsPDF.
 
-Frontend runs on `http://localhost:5173`. Uses `jspdf` and `jspdf-autotable` for report generation.
+## 🔒 Security & Persistence
+- **State Preservation**: LocalStorage-based draft saving for test creation and exam progress.
+- **Environment Variables**: Use `.env` for `OPENAI_API_KEY`, `MONGODB_URI`, and `JWT_SECRET`.
+- **Proctoring Integrity**: Server-side validation of proctoring events and attempt time-stamping.
 
-## Persistence
-- **File Store**: Data saved locally at `Backend/data/store.json`.
-- **MongoDB**: Optional support by configuring `.env` with `MONGODB_URI`.
+---
+*Self-evolving intelligence for modern education.*
