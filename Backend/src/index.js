@@ -2270,11 +2270,13 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
           isAI: true
         };
       } else {
+        console.warn("OPENAI_API_KEY is missing. Falling back to simple NLP Scoring.");
         baseEvaluation = evaluateAnswer(answer, currentQuestion);
         baseEvaluation.isAI = false;
+        baseEvaluation.feedback = `${baseEvaluation.feedback} (Note: true AI scoring is currently disabled)`;
       }
     } catch (err) {
-      console.warn("AI scoring failed or skipped, using fallback NLP:", err.message);
+      console.error("AI scoring failed, using fallback NLP:", err.message);
       baseEvaluation = evaluateAnswer(answer, currentQuestion);
       baseEvaluation.isAI = false;
     }
@@ -2330,8 +2332,8 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     quizSession.currentQuestionId = null;
     quizSession.completed = true;
     quizSession.completedAt = Date.now();
-    // Results are AI-checked immediately but released after 5 minutes.
-    quizSession.aiPublishAt = quizSession.completedAt + 5 * 60 * 1000;
+    // Results are AI-checked immediately and released immediately (no delay).
+    quizSession.aiPublishAt = quizSession.completedAt;
     quizSession.teacherPublishedAt = quizSession.teacherPublishedAt ?? null;
     persistQuizSession(quizSession).catch(() => { });
     logHistory(req.user.id, "quiz_completed", { quizId: quizSession.id, average: buildResult(quizSession).averagePercentage }).catch(
