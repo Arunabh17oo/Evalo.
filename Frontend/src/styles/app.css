@@ -161,9 +161,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
-  width: min(1100px, 78vw);
-  margin: 0 auto 1.2rem max(0.4rem, 5vw);
+  gap: 1.5rem;
+  width: min(1100px, 94%);
+  margin: 0 auto 1.2rem auto;
 }
 
 .topbar-actions {
@@ -181,10 +181,10 @@ body {
 .main-grid {
   position: relative;
   z-index: 3;
-  width: min(1100px, 90vw);
+  width: min(1100px, 94%);
   margin: 0 auto;
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .card {
@@ -228,8 +228,8 @@ body {
 
 .split-card {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: 1.2fr 1fr;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
   align-items: start;
 }
 
@@ -772,188 +772,7 @@ td {
   }
 }
 
-@media (max-width: 1024px) {
-
-  .topbar,
-  .main-grid {
-    width: 100%;
-    margin: 0 0 1rem;
-  }
-
-  .split-card {
-    grid-template-columns: 1fr;
-  }
-
-  .topbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .topbar-actions {
-    justify-content: flex-start;
-  }
-
-  .role-badge {
-    max-width: 68vw;
-  }
-
-  .hero-card h1 {
-    font-size: clamp(1.7rem, 6vw, 2.5rem);
-  }
-}
-
-@media (max-width: 700px) {
-  .app-shell {
-    padding: 0.75rem 0.65rem 1.1rem;
-  }
-
-  .toast-stack {
-    left: 0.65rem;
-    right: 0.65rem;
-    width: auto;
-  }
-
-  .card {
-    border-radius: 18px;
-    padding: 0.9rem;
-  }
-
-  .logo5d-main {
-    font-size: 1.7rem;
-    letter-spacing: 0.06em;
-  }
-
-  .logo5d-sub {
-    font-size: 0.66rem;
-    letter-spacing: 0.14em;
-  }
-
-  .topbar {
-    gap: 0.7rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .topbar-actions {
-    width: 100%;
-    gap: 0.5rem;
-  }
-
-  .topbar-actions button,
-  .topbar-actions .role-badge {
-    width: 100%;
-    justify-content: center;
-    text-align: center;
-  }
-
-  .topbar-actions .role-badge {
-    max-width: 100%;
-  }
-
-  .hero-card h1 {
-    font-size: clamp(1.45rem, 7.2vw, 2rem);
-  }
-
-  .subtitle {
-    font-size: 0.95rem;
-  }
-
-  .pill-wrap {
-    gap: 0.45rem;
-  }
-
-  .pill {
-    font-size: 0.78rem;
-  }
-
-  .question-head {
-    gap: 0.45rem;
-  }
-
-  .prompt {
-    font-size: 0.98rem;
-    line-height: 1.45;
-  }
-
-  .flat-list li {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .list-actions {
-    width: 100%;
-  }
-
-  .list-actions {
-    gap: 0.5rem;
-  }
-
-  .list-title {
-    white-space: normal;
-  }
-
-  .flat-list li button {
-    width: 100%;
-  }
-
-  table {
-    min-width: 560px;
-  }
-
-  th,
-  td {
-    font-size: 0.88rem;
-    padding: 0.52rem;
-  }
-
-  .camera-box {
-    aspect-ratio: 4 / 3;
-  }
-
-  .modal-overlay {
-    align-items: end;
-    padding: 0.5rem;
-  }
-
-  .modal-glass {
-    width: 100%;
-    border-radius: 18px;
-    padding: 0.9rem;
-  }
-
-  .modal-glass .row {
-    flex-direction: column;
-  }
-
-  .modal-glass .row button {
-    width: 100%;
-  }
-}
-
-@media (max-width: 420px) {
-  .app-shell {
-    padding: 0.65rem 0.55rem 1rem;
-  }
-
-  .card {
-    border-radius: 16px;
-    padding: 0.8rem;
-  }
-
-  button,
-  input,
-  select,
-  textarea {
-    font-size: 0.92rem;
-  }
-
-  .hero-card h1 {
-    font-size: 1.35rem;
-  }
-
-  .big-code {
-    font-size: 1.05rem;
-  }
-}
+/* Consolidated Media Query 1024px Started Here */
 
 /* Premium Glassmorphism Effects */
 .glass-premium {
@@ -1383,11 +1202,12 @@ td {
 .nav-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 clamp(1rem, 3vw, 3rem);
+  padding: 0 clamp(1rem, 4vw, 3rem);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 2rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .nav-actions {
@@ -1490,35 +1310,19 @@ td {
   padding-top: 0;
 }
 
-/* Responsive adjustments for centered layout */
-@media (max-width: 768px) {
-  .hero-centered {
-    margin: 6rem auto 2rem;
-  }
 
-  .nav-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
+.stats-grid-centered {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
 
-  .nav-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
+.stat-card-large {
+  padding: 1.5rem 1rem;
+}
 
-  .stats-grid-centered {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-  }
-
-  .stat-card-large {
-    padding: 1.5rem 1rem;
-  }
-
-  .stat-number-large {
-    font-size: 2rem;
-  }
+.stat-number-large {
+  font-size: 2rem;
+}
 }
 
 /* ========================================
@@ -1754,20 +1558,6 @@ td {
   color: #8ba8c4;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .test-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .test-card-footer {
-    flex-direction: column;
-  }
-
-  .test-card-footer button {
-    width: 100%;
-  }
-}
 
 /* ========================================
    PREMIUM RESULT DASHBOARD STYLES
@@ -2074,29 +1864,7 @@ td {
   margin: 0.5rem 0;
   font-size: 0.9rem;
 }
-
-@media (max-width: 768px) {
-  .score-main {
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .score-circle {
-    width: 120px;
-    height: 120px;
-  }
-
-  .score-value {
-    font-size: 2rem;
-  }
-
-  .score-percentage {
-    font-size: 2.5rem;
-  }
-
-  .performance-stats {
-    grid-template-columns: 1fr;
-  }
+}
 }
 
 /* Toggle Switch */
@@ -2144,4 +1912,117 @@ input:focus+.slider {
 
 input:checked+.slider:before {
   transform: translateX(20px);
+}
+
+/* ============================================================
+   Consolidated Responsive Design (Mobile-First / Adaptive)
+   ============================================================ */
+
+/* Large Tablets & Small Desktops */
+@media (max-width: 1024px) {
+  .top-nav {
+    padding: 0.6rem 0;
+  }
+
+  .hero-card h1 {
+    font-size: clamp(1.8rem, 6vw, 2.8rem);
+  }
+
+  .main-grid,
+  .topbar {
+    width: 96%;
+  }
+}
+
+/* Tablets & Mobile Devices */
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 0.8rem 0.6rem 1.5rem;
+  }
+
+  .nav-container {
+    padding: 0 1rem;
+    gap: 1rem;
+  }
+
+  .nav-brand {
+    transform: scale(0.9);
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .split-card {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 1.25rem;
+    border-radius: 20px;
+  }
+
+  .feature-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cta-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cta-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .modal-content {
+    width: 94%;
+    padding: 1.5rem;
+    margin: 1rem auto;
+  }
+
+  /* Evaluation Review Detail Adjustments */
+  .review-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Small Phones */
+@media (max-width: 480px) {
+  .logo5d-main {
+    font-size: 1.6rem;
+  }
+
+  .hero-card h1 {
+    font-size: 1.8rem;
+  }
+
+  .toast-stack {
+    width: 90vw;
+    left: 5vw;
+    right: 5vw;
+  }
+
+  .stat-number {
+    font-size: 1.8rem;
+  }
 }
