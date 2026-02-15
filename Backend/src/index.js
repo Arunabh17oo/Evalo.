@@ -200,6 +200,7 @@ let BookSessionModel = null;
 let TestModel = null;
 let QuizSessionModel = null;
 let UserHistoryModel = null;
+let GlobalSettingsModel = null;
 
 if (mongoose) {
   const UserSchema = new mongoose.Schema(
@@ -268,6 +269,7 @@ if (mongoose) {
       completed: { type: Boolean, index: true },
       totalMarks: Number,
       marksPerQuestion: Number,
+      rollNo: { type: String, index: true },
       proctor: mongoose.Schema.Types.Mixed
     },
     { versionKey: false, strict: false }
@@ -283,11 +285,21 @@ if (mongoose) {
     { versionKey: false, strict: false }
   );
 
+  const GlobalSettingsSchema = new mongoose.Schema(
+    {
+      _id: String,
+      allowCopyPaste: { type: Boolean, default: false },
+      updatedAt: { type: Date, default: Date.now }
+    },
+    { versionKey: false, strict: false }
+  );
+
   UserModel = mongoose.models.User || mongoose.model("User", UserSchema);
   BookSessionModel = mongoose.models.BookSession || mongoose.model("BookSession", BookSessionSchema);
   TestModel = mongoose.models.Test || mongoose.model("Test", TestSchema);
   QuizSessionModel = mongoose.models.QuizSession || mongoose.model("QuizSession", QuizSessionSchema);
   UserHistoryModel = mongoose.models.UserHistory || mongoose.model("UserHistory", UserHistorySchema);
+  GlobalSettingsModel = mongoose.models.GlobalSettings || mongoose.model("GlobalSettings", GlobalSettingsSchema);
 }
 
 function bookDocFromSession(book) {
@@ -392,6 +404,7 @@ function quizDocFromSession(quiz) {
     marksPerQuestion: quiz.marksPerQuestion ?? null,
     topic: quiz.topic ?? null,
     questionFormat: quiz.questionFormat ?? "subjective",
+    rollNo: quiz.rollNo || null,
     proctor: quiz.proctor || {}
   };
 }
@@ -429,6 +442,7 @@ function quizSessionFromDoc(doc) {
     marksPerQuestion: doc.marksPerQuestion ?? null,
     topic: doc.topic ?? null,
     questionFormat: doc.questionFormat ?? "subjective",
+    rollNo: doc.rollNo || null,
     proctor: doc.proctor || { riskScore: 0, warningCount: 0, warningMessages: [], events: [] }
   };
 }
@@ -438,7 +452,8 @@ let fileStore = {
   bookSessions: [],
   tests: [],
   quizSessions: [],
-  history: []
+  history: [],
+  settings: { allowCopyPaste: false }
 };
 let fileStoreLoaded = false;
 let fileStoreQueue = Promise.resolve();
@@ -447,17 +462,17 @@ async function loadFileStore() {
   if (fileStoreLoaded) return;
   await fs.mkdir(DATA_DIR, { recursive: true });
   try {
-    const raw = await fs.readFile(FILE_STORE_PATH, "utf8");
     const data = JSON.parse(raw);
     fileStore = {
       users: Array.isArray(data.users) ? data.users : [],
       bookSessions: Array.isArray(data.bookSessions) ? data.bookSessions : [],
       tests: Array.isArray(data.tests) ? data.tests : [],
       quizSessions: Array.isArray(data.quizSessions) ? data.quizSessions : [],
-      history: Array.isArray(data.history) ? data.history : []
+      history: Array.isArray(data.history) ? data.history : [],
+      settings: data.settings || { allowCopyPaste: false }
     };
   } catch (_error) {
-    fileStore = { users: [], bookSessions: [], tests: [], quizSessions: [], history: [] };
+    fileStore = { users: [], bookSessions: [], tests: [], quizSessions: [], history: [], settings: { allowCopyPaste: false } };
     await fs.writeFile(FILE_STORE_PATH, JSON.stringify(fileStore, null, 2), "utf8");
   }
   fileStoreLoaded = true;
@@ -573,6 +588,14 @@ async function persistQuizSession(quiz) {
   await queueFileStoreWrite(async () => {
     upsertById(fileStore.quizSessions, quiz.id, quizDocFromSession(quiz));
   });
+}
+
+async function persistSettings(settings) {
+  if (dbReady && GlobalSettingsModel) {
+    await GlobalSettingsModel.updateOne({ _id: "global" }, settings, { upsert: true });
+  }
+  fileStore.settings = settings;
+  await saveFileStore();
 }
 
 function hashString(input) {
@@ -1040,7 +1063,7 @@ async function createBookSession(files, ownerId) {
   return session;
 }
 
-function createQuizSession({ bookSession, studentId, initialLevel, questionCount, testId, durationMinutes, topic, questionFormat }) {
+function createQuizSession({ bookSession, studentId, initialLevel, questionCount, testId, durationMinutes, topic, questionFormat, rollNo }) {
   const safeLevel = LEVEL_INDEX[initialLevel] !== undefined ? initialLevel : "intermediate";
   const safeQuestionCount = Math.min(Math.max(Number(questionCount) || 8, 4), 20);
 
@@ -1088,6 +1111,7 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
     testId: testId || null,
     bookSessionId: bookSession.id,
     studentId,
+    rollNo: rollNo || null,
     initialLevel: safeLevel,
     currentLevel: safeLevel,
     questionCount: safeQuestionCount,
@@ -1444,6 +1468,39 @@ app.get("/api/auth/me", authRequired, (req, res) => {
 
 app.post("/api/auth/logout", authRequired, (req, res) => {
   return res.json({ ok: true });
+});
+
+app.get("/api/settings", async (_req, res) => {
+  return res.json(fileStore.settings || { allowCopyPaste: false });
+});
+
+app.post("/api/settings", authRequired, requireRoles("admin"), async (req, res) => {
+  const { allowCopyPaste, password } = req.body;
+
+  if (allowCopyPaste === true) {
+    // Verification of admin password required to enable feature
+    if (!password) {
+      return res.status(400).json({ error: "Password is required to enable copy-paste functionality." });
+    }
+    const adminUser = users.get(req.user.id);
+    if (!adminUser || !verifyPassword(password, adminUser.passwordHash)) {
+      return res.status(401).json({ error: "Incorrect admin password verification failed." });
+    }
+  }
+
+  const nextSettings = {
+    ...fileStore.settings,
+    allowCopyPaste: !!allowCopyPaste,
+    updatedAt: new Date().toISOString()
+  };
+
+  await persistSettings(nextSettings);
+
+  await logHistory(req.user.id, "update_settings", {
+    allowCopyPaste: nextSettings.allowCopyPaste
+  });
+
+  return res.json({ ok: true, settings: nextSettings });
 });
 
 app.get("/api/users/me/history", authRequired, async (req, res) => {
@@ -1965,21 +2022,29 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
     return res.status(404).json({ error: "Book session missing for this test." });
   }
 
-  let existingQuiz = [...quizSessions.values()].find(
-    (quiz) => quiz.testId === test.id && quiz.studentId === req.user.id && !quiz.completed
+  let existingQuizzes = [...quizSessions.values()].filter(
+    (quiz) => quiz.testId === test.id && quiz.studentId === req.user.id
   );
-  if (!existingQuiz && dbReady) {
-    const quizDoc = await QuizSessionModel.findOne({
+  if (dbReady) {
+    const quizDocs = await QuizSessionModel.find({
       testId: test.id,
-      studentId: req.user.id,
-      completed: false
+      studentId: req.user.id
     }).lean();
-    if (quizDoc) {
-      existingQuiz = quizSessionFromDoc(quizDoc);
-      quizSessions.set(existingQuiz.id, existingQuiz);
-    }
+    quizDocs.forEach(doc => {
+      if (!existingQuizzes.find(q => q.id === doc._id)) {
+        const q = quizSessionFromDoc(doc);
+        existingQuizzes.push(q);
+        quizSessions.set(q.id, q);
+      }
+    });
   }
 
+  const completedQuiz = existingQuizzes.find(q => q.completed);
+  if (completedQuiz) {
+    return res.status(403).json({ error: "You have already completed this test. Multiple attempts are not allowed." });
+  }
+
+  const existingQuiz = existingQuizzes.find(q => !q.completed);
   if (existingQuiz) {
     const activeQuestion = existingQuiz.questionBank.find((q) => q.id === existingQuiz.currentQuestionId);
     return res.json({
@@ -2007,6 +2072,11 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
     });
   }
 
+  const rollNo = String(req.body?.rollNo || "").trim();
+  if (!rollNo) {
+    return res.status(400).json({ error: "Roll Number is required to start the test." });
+  }
+
   try {
     const { quizSession, firstQuestion } = createQuizSession({
       bookSession,
@@ -2016,7 +2086,8 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
       testId: test.id,
       durationMinutes: test.durationMinutes,
       topic: test.topic,
-      questionFormat: test.questionFormat
+      questionFormat: test.questionFormat,
+      rollNo
     });
     quizSession.totalMarks = test.totalMarks;
     quizSession.marksPerQuestion = test.marksPerQuestion;
@@ -2343,6 +2414,9 @@ app.get("/api/quizzes/:quizId", authRequired, async (req, res) => {
   return res.json({
     quizId: quizSession.id,
     test: test ? compactTestPayload(test) : null,
+    studentName: users.get(quizSession.studentId)?.name || null,
+    studentEmail: users.get(quizSession.studentId)?.email || null,
+    rollNo: quizSession.rollNo || null,
     status: {
       completed: Boolean(quizSession.completed),
       completedAt: quizSession.completedAt ?? null,
@@ -2389,6 +2463,7 @@ app.get("/api/tests/:testId/attempts", authRequired, requireRoles("teacher", "ad
       studentName: u?.name || null,
       studentEmail: u?.email || null,
       quizId: a.quizId,
+      rollNo: quiz?.rollNo || null,
       startedAt: a.startedAt,
       completed: Boolean(quiz?.completed),
       teacherPublishedAt: quiz?.teacherPublishedAt ?? null,

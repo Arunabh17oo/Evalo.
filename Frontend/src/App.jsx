@@ -462,6 +462,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [activePage, setActivePage] = useState("home");
   const [toasts, setToasts] = useState([]);
+  const [globalSettings, setGlobalSettings] = useState({ allowCopyPaste: false });
+  const [settingsBusy, setSettingsBusy] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
 
   const [authOpen, setAuthOpen] = useState(false);
@@ -508,7 +510,7 @@ export default function App() {
         if (savedDraft) {
           const draft = JSON.parse(savedDraft);
           setCreateTestForm(draft);
-          addToast('📝 Draft restored from previous session', 'success');
+          pushToast('📝 Draft restored from previous session', 'success');
         }
       } catch (err) {
         console.error('Failed to restore draft:', err);
@@ -533,6 +535,7 @@ export default function App() {
   const [editingTestId, setEditingTestId] = useState("");
 
   const [joinCode, setJoinCode] = useState("");
+  const [rollNo, setRollNo] = useState("");
   const [quizId, setQuizId] = useState("");
   const [joinedTest, setJoinedTest] = useState(null);
   const [testAnalytics, setTestAnalytics] = useState(null);
@@ -640,6 +643,10 @@ export default function App() {
         const { data } = await axios.get(`${API_BASE}/auth/me`, authConfig(token));
         if (!active) return;
         setUser(data.user);
+
+        // Fetch global settings
+        const sRes = await axios.get(`${API_BASE}/settings`);
+        setGlobalSettings(sRes.data);
       } catch (_err) {
         if (!active) return;
         setToken("");
@@ -761,7 +768,7 @@ export default function App() {
       setTestAnalytics(data);
       setShowAnalyticsModal(true);
     } catch (err) {
-      addToast(appError(err, "Failed to load analytics"), "danger");
+      pushToast(appError(err, "Failed to load analytics"), "danger");
     } finally {
       setBusy(false);
     }
@@ -774,7 +781,7 @@ export default function App() {
       setProctorLogs(data);
       setShowProctorModal(true);
     } catch (err) {
-      addToast(appError(err, "Failed to load proctor logs"), "danger");
+      pushToast(appError(err, "Failed to load proctor logs"), "danger");
     } finally {
       setBusy(false);
     }
@@ -792,10 +799,10 @@ export default function App() {
       );
 
       if (data.successCount > 0) {
-        addToast(`✅ Published ${data.successCount} result(s) successfully!`, "success");
+        pushToast(`✅ Published ${data.successCount} result(s) successfully!`, "success");
       }
       if (data.failureCount > 0) {
-        addToast(`⚠️ ${data.failureCount} result(s) could not be published. Check individual errors.`, "error");
+        pushToast(`⚠️ ${data.failureCount} result(s) could not be published. Check individual errors.`, "error");
       }
 
       // Reload attempts to reflect changes
@@ -1063,7 +1070,7 @@ export default function App() {
         mcqCount: 0,
         subjectiveCount: 0
       });
-      addToast('🗑️ Draft cleared', 'success');
+      pushToast('🗑️ Draft cleared', 'success');
     } catch (err) {
       console.error('Failed to clear draft:', err);
     }
@@ -1136,7 +1143,7 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
-      const { data } = await axios.post(`${API_BASE}/tests/join`, { joinCode }, authConfig(token));
+      const { data } = await axios.post(`${API_BASE}/tests/join`, { joinCode, rollNo }, authConfig(token));
       setQuizId(data.quizId);
       setJoinedTest(data.test);
       setQuestion(data.question);
@@ -1263,7 +1270,10 @@ export default function App() {
 
     const onCopy = (e) => blockedAction(e, "copy_attempt");
     const onCut = (e) => blockedAction(e, "copy_attempt");
-    const onPaste = (e) => blockedAction(e, "paste_attempt");
+    const onPaste = (e) => {
+      if (globalSettings.allowCopyPaste) return;
+      blockedAction(e, "paste_attempt");
+    };
     const onContext = (e) => blockedAction(e, "context_menu");
 
     window.addEventListener("blur", handleBlur);
@@ -1488,7 +1498,7 @@ export default function App() {
         const { data } = await axios.get(`${API_BASE}/quiz/${quizId}/result`, authConfig(token));
         if (data && data.teacherPublishedAt) {
           setResult(data);
-          addToast("🎉 Your marks have been published by the teacher!", "success");
+          pushToast("🎉 Your marks have been published by the teacher!", "success");
         }
       } catch (err) {
         // fail silently
@@ -1505,14 +1515,43 @@ export default function App() {
       const { data } = await axios.get(`${API_BASE}/quiz/${result.quizId || result.id}/result`, authConfig(token));
       setResult(data || result);
       if (data?.teacherPublishedAt) {
-        addToast("Scores updated.", "success");
+        pushToast("Scores updated.", "success");
       } else {
-        addToast("Scores are still pending teacher review.", "info");
+        pushToast("Scores are still pending teacher review.", "info");
       }
     } catch (err) {
       setError(appError(err, "Sync failed."));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function updateGlobalSettings(allow) {
+    let password = "";
+    if (allow) {
+      password = prompt("SECURITY CHECK: Please re-type your ADMINISTRATOR password to enable global copy-paste functionality:");
+      if (password === null) return; // User cancelled
+      if (!password.trim()) {
+        pushToast("Password is required to change this setting.", "error");
+        return;
+      }
+    }
+
+    setSettingsBusy(true);
+    try {
+      const { data } = await axios.post(
+        `${API_BASE}/settings`,
+        { allowCopyPaste: allow, password },
+        authConfig(token)
+      );
+      if (data.ok) {
+        setGlobalSettings(data.settings);
+        pushToast(`Global copy-paste ${allow ? "ENABLED" : "DISABLED"}.`, "success");
+      }
+    } catch (err) {
+      setError(appError(err, "Settings update failed."));
+    } finally {
+      setSettingsBusy(false);
     }
   }
 
@@ -1666,15 +1705,42 @@ export default function App() {
                       </div>
                       <p className="hint">Utility functions for platform maintenance and auditing.</p>
                       <div className="row gap-top">
-                        <button className="btn-soft btn-small" onClick={() => addToast("Audit Log fetched (Demo)", "info")}>
+                        <button className="btn-soft btn-small" onClick={() => pushToast("Audit Log fetched (Demo)", "info")}>
                           View Audit Logs
                         </button>
-                        <button className="btn-soft btn-small" onClick={() => addToast("Cache cleared (Demo)", "info")}>
+                        <button className="btn-soft btn-small" onClick={() => pushToast("Cache cleared (Demo)", "info")}>
                           Clear System Cache
                         </button>
-                        <button className="btn-soft btn-small" onClick={() => addToast("Storage optimized (Demo)", "info")}>
+                        <button className="btn-soft btn-small" onClick={() => pushToast("Storage optimized (Demo)", "info")}>
                           Optimize Storage
                         </button>
+                      </div>
+                    </div>
+
+                    <div className="evaluation gap-top">
+                      <div className="list-header">
+                        <h3>Global Exam Settings</h3>
+                        <span className="pill success">System-wide</span>
+                      </div>
+                      <p className="hint">Control shared behaviors across all student tests platform-wide.</p>
+                      <div className="row gap-top" style={{ alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ display: 'block', marginBottom: '4px' }}>Allow Copy-Paste in Tests</strong>
+                          <p className="hint" style={{ margin: 0, fontSize: '0.85rem' }}>
+                            {globalSettings.allowCopyPaste
+                              ? "Students can currently paste text into answer boxes."
+                              : "Pasting is strictly blocked. Enabling this requires admin password verification."}
+                          </p>
+                        </div>
+                        <label className="switch">
+                          <input
+                            type="checkbox"
+                            checked={globalSettings.allowCopyPaste}
+                            onChange={(e) => updateGlobalSettings(e.target.checked)}
+                            disabled={settingsBusy}
+                          />
+                          <span className="slider round"></span>
+                        </label>
                       </div>
                     </div>
 
@@ -2370,6 +2436,7 @@ export default function App() {
                                         />
                                       )}
                                       <div className="attempt-name">
+                                        {a.rollNo ? <span style={{ fontWeight: 600, color: '#63f2de', marginRight: '8px' }}>[{a.rollNo}]</span> : null}
                                         {a.studentName || a.studentEmail || a.userId}
                                       </div>
                                       <div className="attempt-status-row">
@@ -2467,8 +2534,12 @@ export default function App() {
                               <span className="pill">Publish: {pc}/{pl}</span>
                             </div>
                             <p className="hint">
-                              Quiz: {reviewDetail.quizId}{" "}
-                              {reviewDetail.status?.teacherPublishedAt ? "(Final published)" : "(Draft)"}
+                              Student: {reviewDetail.studentName || reviewDetail.studentEmail || reviewDetail.studentId}
+                              {reviewDetail.rollNo ? ` | Roll No: ${reviewDetail.rollNo}` : ""}
+                            </p>
+                            <p className="hint" style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                              Quiz ID: {reviewDetail.quizId} |
+                              Status: {reviewDetail.status?.teacherPublishedAt ? "Finalized" : "Draft"}
                             </p>
                             {publishReason ? <p className="warning">{publishReason}</p> : null}
 
@@ -2618,17 +2689,25 @@ export default function App() {
                         <input
                           value={joinCode}
                           onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (joinCode && !busy) joinTest();
-                            }
-                          }}
                           placeholder="e.g. A9P3QX"
                         />
                       </label>
+                      <label>
+                        Your Roll Number
+                        <input
+                          value={rollNo}
+                          onChange={(e) => setRollNo(e.target.value.trim())}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (joinCode && rollNo && !busy) joinTest();
+                            }
+                          }}
+                          placeholder="e.g. 2024-CS-01"
+                        />
+                      </label>
                       {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
-                      <button type="button" onClick={joinTest} disabled={busy}>
+                      <button type="button" onClick={joinTest} disabled={busy || !joinCode || !rollNo}>
                         {busy ? "Joining..." : "Join Test"}
                       </button>
                       <p className="hint">On joining, camera and mic permissions will be requested and fullscreen will be activated.</p>

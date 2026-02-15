@@ -3,5 +3,9 @@
   "bookSessions": [],
   "tests": [],
   "quizSessions": [],
-  "history": []
+  "history": [],
+  "settings": {
+    "allowCopyPaste": false,
+    "updatedAt": "2026-02-15T19:05:18.538Z"
+  }
 }
