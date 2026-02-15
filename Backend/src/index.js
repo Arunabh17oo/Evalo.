@@ -7,6 +7,7 @@ const crypto = require("crypto");
 const natural = require("natural");
 const pdfParse = require("pdf-parse");
 const { v4: uuidv4 } = require("uuid");
+const { evaluateSubjectiveAnswer } = require("./services/aiService");
 
 let mongoose = null;
 try {
@@ -213,48 +214,48 @@ if (mongoose) {
     { versionKey: false, strict: false }
   );
 
-const BookSessionSchema = new mongoose.Schema(
-  {
-    _id: String,
-    title: String,
-    createdAt: String,
-    ownerId: String,
-    fileNames: [String],
-    chunks: [{ id: String, text: String }],
-    questionBank: [mongoose.Schema.Types.Mixed],
-    flowCounter: { type: Number, default: 0 },
-    issuedFlowFingerprints: [String]
-  },
-  { versionKey: false, strict: false }
-);
+  const BookSessionSchema = new mongoose.Schema(
+    {
+      _id: String,
+      title: String,
+      createdAt: String,
+      ownerId: String,
+      fileNames: [String],
+      chunks: [{ id: String, text: String }],
+      questionBank: [mongoose.Schema.Types.Mixed],
+      flowCounter: { type: Number, default: 0 },
+      issuedFlowFingerprints: [String]
+    },
+    { versionKey: false, strict: false }
+  );
 
-const TestSchema = new mongoose.Schema(
-  {
-    _id: String,
-    title: String,
-    joinCode: { type: String, index: true },
-    bookSessionId: String,
-    examMode: String,
-    durationMinutes: Number,
-    questionCount: Number,
-    initialLevel: String,
-    totalMarks: Number,
-    marksPerQuestion: Number,
-    startsAt: String,
-    createdBy: String,
-    createdAt: String,
-    active: Boolean,
-    attempts: [mongoose.Schema.Types.Mixed]
-  },
-  { versionKey: false, strict: false }
-);
+  const TestSchema = new mongoose.Schema(
+    {
+      _id: String,
+      title: String,
+      joinCode: { type: String, index: true },
+      bookSessionId: String,
+      examMode: String,
+      durationMinutes: Number,
+      questionCount: Number,
+      initialLevel: String,
+      totalMarks: Number,
+      marksPerQuestion: Number,
+      startsAt: String,
+      createdBy: String,
+      createdAt: String,
+      active: Boolean,
+      attempts: [mongoose.Schema.Types.Mixed]
+    },
+    { versionKey: false, strict: false }
+  );
 
   const QuizSessionSchema = new mongoose.Schema(
     {
       _id: String,
-      testId: String,
+      testId: { type: String, index: true },
       bookSessionId: String,
-      studentId: String,
+      studentId: { type: String, index: true },
       initialLevel: String,
       currentLevel: String,
       questionCount: Number,
@@ -264,7 +265,7 @@ const TestSchema = new mongoose.Schema(
       currentQuestionId: String,
       startedAt: Number,
       deadlineAt: Number,
-      completed: Boolean,
+      completed: { type: Boolean, index: true },
       totalMarks: Number,
       marksPerQuestion: Number,
       proctor: mongoose.Schema.Types.Mixed
@@ -995,7 +996,7 @@ async function readBookText(file) {
     const plain = await fs.readFile(absolute, "utf-8");
     return cleanText(plain);
   } finally {
-    await fs.unlink(absolute).catch(() => {});
+    await fs.unlink(absolute).catch(() => { });
   }
 }
 
@@ -1069,7 +1070,7 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
 
   bookSession.issuedFlowFingerprints = usedFingerprints;
   // Persist updated flow state so student flows stay unique after restart.
-  persistBookSession(bookSession).catch(() => {});
+  persistBookSession(bookSession).catch(() => { });
 
   // Apply question format (subjective/mcq/mixed) deterministically for this flow.
   shuffled = ensureQuestionFormatOnBank(
@@ -1123,13 +1124,13 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
   quizSessions.set(quizId, quizSession);
 
   // Persist asynchronously
-  persistQuizSession(quizSession).catch(() => {});
+  persistQuizSession(quizSession).catch(() => { });
   logHistory(studentId, "quiz_started", {
     quizId,
     testId: testId || null,
     bookSessionId: bookSession.id,
     deadlineAt: quizSession.deadlineAt
-  }).catch(() => {});
+  }).catch(() => { });
 
   return {
     quizSession,
@@ -1211,7 +1212,11 @@ function buildResult(quizSession) {
       percentage: r.percentage,
       difficulty: r.difficulty,
       marksAwarded: r.marksAwarded ?? null,
-      teacherMarksAwarded: r.teacherMarksAwarded ?? null
+      teacherMarksAwarded: r.teacherMarksAwarded ?? null,
+      feedback: r.feedback || null,
+      isAI: r.isAI || false,
+      aiReasoning: r.aiReasoning || null,
+      aiConfidence: r.aiConfidence || null
     }))
   };
 }
@@ -1478,10 +1483,10 @@ app.get("/api/users/me/quizzes", authRequired, async (req, res) => {
     questionCount: q.questionCount,
     averagePercentage: q.responses?.length
       ? Number(
-          (
-            q.responses.reduce((sum, r) => sum + (Number(r.percentage) || 0), 0) / q.responses.length
-          ).toFixed(2)
-        )
+        (
+          q.responses.reduce((sum, r) => sum + (Number(r.percentage) || 0), 0) / q.responses.length
+        ).toFixed(2)
+      )
       : null
   });
 
@@ -1606,7 +1611,7 @@ async function deleteTestEverywhere(testId, opts = {}) {
       const quizList = [...quizIds.values()];
       const or = [{ "payload.testId": testId }, { "payload.joinCode": joinCode }];
       if (quizList.length) or.push({ "payload.quizId": { $in: quizList } });
-      await UserHistoryModel.deleteMany({ $or: or }).catch(() => {});
+      await UserHistoryModel.deleteMany({ $or: or }).catch(() => { });
     }
   } else {
     await queueFileStoreWrite(async () => {
@@ -1982,10 +1987,10 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
       test: compactTestPayload(test),
       question: activeQuestion
         ? questionPayload(
-            activeQuestion,
-            existingQuiz.responses.length + 1,
-            existingQuiz.questionCount
-          )
+          activeQuestion,
+          existingQuiz.responses.length + 1,
+          existingQuiz.questionCount
+        )
         : null,
       deadlineAt: existingQuiz.deadlineAt,
       timeLeftSec: Math.max(0, Math.floor((existingQuiz.deadlineAt - Date.now()) / 1000)),
@@ -2015,13 +2020,13 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
     });
     quizSession.totalMarks = test.totalMarks;
     quizSession.marksPerQuestion = test.marksPerQuestion;
-    persistQuizSession(quizSession).catch(() => {});
+    persistQuizSession(quizSession).catch(() => { });
 
     test.attempts.push({ userId: req.user.id, quizId: quizSession.id, startedAt: new Date().toISOString() });
     tests.set(test.id, test);
-    persistTest(test).catch(() => {});
+    persistTest(test).catch(() => { });
     logHistory(req.user.id, "test_joined", { testId: test.id, joinCode: test.joinCode, quizId: quizSession.id }).catch(
-      () => {}
+      () => { }
     );
 
     return res.json({
@@ -2063,11 +2068,65 @@ app.post("/api/quiz/:quizId/proctor-event", authRequired, requireRoles("student"
   if (!type) return res.status(400).json({ error: "Proctor event type is required." });
 
   const summary = registerProctorEvent(quizSession, type, req.body?.meta || {});
-  persistQuizSession(quizSession).catch(() => {});
+  persistQuizSession(quizSession).catch(() => { });
   logHistory(req.user.id, "proctor_event", { quizId: quizSession.id, type, riskScore: summary.riskScore }).catch(
-    () => {}
+    () => { }
   );
   return res.json({ ...summary, completed: false });
+});
+
+// Auto-save endpoint - allows partial saves without validation
+app.patch("/api/quiz/:quizId/autosave", authRequired, requireRoles("student", "admin"), async (req, res) => {
+  const quizSession = await ensureQuizAccess(req, res);
+  if (!quizSession) return;
+
+  if (quizSession.completed) {
+    return res.json({ ok: true, completed: true });
+  }
+
+  if (Date.now() > quizSession.deadlineAt) {
+    return res.json({ ok: true, timedOut: true });
+  }
+
+  const currentQuestion = quizSession.questionBank.find((q) => q.id === quizSession.currentQuestionId);
+  if (!currentQuestion) {
+    return res.status(400).json({ error: "No active question found." });
+  }
+
+  const answer = String(req.body?.answer || "");
+  const wordCount = answer.trim().split(/\s+/).filter(w => w.length > 0).length;
+  const characterCount = answer.length;
+
+  // Find or create draft response
+  let draftResponse = quizSession.responses.find(r => r.questionId === currentQuestion.id && r.isDraft);
+
+  if (draftResponse) {
+    // Update existing draft
+    draftResponse.answer = answer;
+    draftResponse.wordCount = wordCount;
+    draftResponse.characterCount = characterCount;
+    draftResponse.lastSavedAt = Date.now();
+  } else {
+    // Create new draft
+    quizSession.responses.push({
+      questionId: currentQuestion.id,
+      answer,
+      wordCount,
+      characterCount,
+      isDraft: true,
+      lastSavedAt: Date.now()
+    });
+  }
+
+  await persistQuizSession(quizSession);
+
+  return res.json({
+    ok: true,
+    saved: true,
+    wordCount,
+    characterCount,
+    timestamp: Date.now()
+  });
 });
 
 app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admin"), async (req, res) => {
@@ -2084,8 +2143,8 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
   if (Date.now() > quizSession.deadlineAt) {
     quizSession.completed = true;
     quizSession.currentQuestionId = null;
-    persistQuizSession(quizSession).catch(() => {});
-    logHistory(req.user.id, "quiz_timed_out", { quizId: quizSession.id }).catch(() => {});
+    persistQuizSession(quizSession).catch(() => { });
+    logHistory(req.user.id, "quiz_timed_out", { quizId: quizSession.id }).catch(() => { });
     return res.json({
       completed: true,
       timedOut: true,
@@ -2113,21 +2172,42 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     }
   }
 
-  const baseEvaluation = isMcq
-    ? (() => {
-        const choice = Number(mcqChoiceRaw);
-        const correctIndex = Number(currentQuestion.correctIndex);
-        const correct = Number.isFinite(correctIndex) ? choice === correctIndex : false;
-        const percentage = correct ? 100 : 0;
-        const feedback = correct ? "Correct. Good selection based on the reference." : "Incorrect. Re-check the concept in the reference text.";
-        return {
-          percentage,
-          details: { correct, choice, correctIndex: Number.isFinite(correctIndex) ? correctIndex : null },
-          feedback,
-          explanation: currentQuestion.explanation || currentQuestion.reference || ""
+  let baseEvaluation;
+
+  if (isMcq) {
+    const choice = Number(mcqChoiceRaw);
+    const correctIndex = Number(currentQuestion.correctIndex);
+    const correct = Number.isFinite(correctIndex) ? choice === correctIndex : false;
+    const percentage = correct ? 100 : 0;
+    const feedback = correct ? "Correct. Good selection based on the reference." : "Incorrect. Re-check the concept in the reference text.";
+    baseEvaluation = {
+      percentage,
+      details: { correct, choice, correctIndex: Number.isFinite(correctIndex) ? correctIndex : null },
+      feedback,
+      explanation: currentQuestion.explanation || currentQuestion.reference || ""
+    };
+  } else {
+    // Subjective AI-enhanced scoring
+    try {
+      if (process.env.OPENAI_API_KEY) {
+        const aiResult = await evaluateSubjectiveAnswer(answer, currentQuestion.reference, 100);
+        baseEvaluation = {
+          percentage: aiResult.score,
+          feedback: aiResult.feedback,
+          reasoning: aiResult.reasoning,
+          confidence: aiResult.confidence,
+          isAI: true
         };
-      })()
-    : evaluateAnswer(answer, currentQuestion);
+      } else {
+        baseEvaluation = evaluateAnswer(answer, currentQuestion);
+        baseEvaluation.isAI = false;
+      }
+    } catch (err) {
+      console.warn("AI scoring failed or skipped, using fallback NLP:", err.message);
+      baseEvaluation = evaluateAnswer(answer, currentQuestion);
+      baseEvaluation.isAI = false;
+    }
+  }
   const cheatingPenalty = Math.floor(quizSession.proctor.riskScore / 35) * 4;
   const adjustedPercentage = Math.max(0, baseEvaluation.percentage - cheatingPenalty);
 
@@ -2158,17 +2238,21 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     details: evaluation.details,
     cheatingPenalty,
     marksAwarded,
-    explanation: evaluation.explanation || null
+    feedback: evaluation.feedback || null,
+    explanation: evaluation.explanation || null,
+    isAI: evaluation.isAI,
+    aiReasoning: evaluation.reasoning || null,
+    aiConfidence: evaluation.confidence || null
   });
 
   quizSession.currentLevel = adjustLevel(quizSession.currentLevel, evaluation.percentage);
-  persistQuizSession(quizSession).catch(() => {});
+  persistQuizSession(quizSession).catch(() => { });
   logHistory(req.user.id, "answer_submitted", {
     quizId: quizSession.id,
     questionId: currentQuestion.id,
     percentage: evaluation.percentage,
     cheatingPenalty
-  }).catch(() => {});
+  }).catch(() => { });
 
   const completed = quizSession.responses.length >= quizSession.questionCount;
   if (completed) {
@@ -2178,9 +2262,9 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     // Results are AI-checked immediately but released after 5 minutes.
     quizSession.aiPublishAt = quizSession.completedAt + 5 * 60 * 1000;
     quizSession.teacherPublishedAt = quizSession.teacherPublishedAt ?? null;
-    persistQuizSession(quizSession).catch(() => {});
+    persistQuizSession(quizSession).catch(() => { });
     logHistory(req.user.id, "quiz_completed", { quizId: quizSession.id, average: buildResult(quizSession).averagePercentage }).catch(
-      () => {}
+      () => { }
     );
     return res.json({
       evaluation,
@@ -2336,10 +2420,10 @@ app.patch("/api/quizzes/:quizId/review", authRequired, requireRoles("teacher", "
     quizSession.lastPublishedReviewHash ||
     (quizSession.teacherPublishedAt
       ? reviewSignatureFromResponses(
-          quizSession.responses || [],
-          quizSession.teacherOverallMarks,
-          quizSession.teacherOverallRemark
-        )
+        quizSession.responses || [],
+        quizSession.teacherOverallMarks,
+        quizSession.teacherOverallRemark
+      )
       : null);
 
   const byQ = new Map(updates.map((u) => [u.questionId, u]));
@@ -2417,6 +2501,106 @@ app.patch("/api/quizzes/:quizId/review", authRequired, requireRoles("teacher", "
   });
 });
 
+// Bulk publish endpoint - publish multiple student results at once
+app.post("/api/tests/:testId/bulk-publish", authRequired, requireRoles("teacher", "admin"), async (req, res) => {
+  const testId = req.params.testId;
+  const test = tests.get(testId);
+
+  if (!test) {
+    return res.status(404).json({ error: "Test not found." });
+  }
+
+  if (test.createdBy !== req.user.id && req.user.role !== "admin") {
+    return res.status(403).json({ error: "You cannot publish results for this test." });
+  }
+
+  const quizIds = Array.isArray(req.body?.quizIds) ? req.body.quizIds : [];
+
+  if (quizIds.length === 0) {
+    return res.status(400).json({ error: "No quiz IDs provided for bulk publish." });
+  }
+
+  const results = [];
+  const publishLimit = 3;
+
+  for (const quizId of quizIds) {
+    try {
+      const quizSession = quizSessions.get(quizId);
+
+      if (!quizSession) {
+        results.push({ quizId, success: false, error: "Quiz not found" });
+        continue;
+      }
+
+      if (quizSession.testId !== testId) {
+        results.push({ quizId, success: false, error: "Quiz does not belong to this test" });
+        continue;
+      }
+
+      if (!quizSession.completed) {
+        results.push({ quizId, success: false, error: "Student has not completed the quiz" });
+        continue;
+      }
+
+      if (!Number.isFinite(Number(quizSession.teacherOverallMarks))) {
+        results.push({ quizId, success: false, error: "Overall marks not set" });
+        continue;
+      }
+
+      const publishCount = Number(quizSession.publishCount) || 0;
+      if (publishCount >= publishLimit) {
+        results.push({ quizId, success: false, error: "Publish limit reached (3/3)" });
+        continue;
+      }
+
+      // Check if there are changes since last publish
+      const signature = reviewSignatureFromResponses(
+        quizSession.responses || [],
+        quizSession.teacherOverallMarks,
+        quizSession.teacherOverallRemark
+      );
+      const lastSig = quizSession.lastPublishedReviewHash || null;
+
+      if (publishCount > 0 && lastSig && signature === lastSig) {
+        results.push({ quizId, success: false, error: "No changes since last publish" });
+        continue;
+      }
+
+      // Publish the quiz
+      quizSession.teacherPublishedAt = Date.now();
+      quizSession.publishCount = publishCount + 1;
+      quizSession.lastPublishedReviewHash = signature;
+
+      await persistQuizSession(quizSession);
+      await logHistory(req.user.id, "bulk_publish", {
+        quizId: quizSession.id,
+        testId,
+        publishCount: quizSession.publishCount
+      });
+
+      results.push({
+        quizId,
+        success: true,
+        publishCount: quizSession.publishCount,
+        teacherPublishedAt: quizSession.teacherPublishedAt
+      });
+    } catch (error) {
+      results.push({ quizId, success: false, error: error.message || "Unknown error" });
+    }
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  const failureCount = results.length - successCount;
+
+  return res.json({
+    ok: true,
+    total: results.length,
+    successCount,
+    failureCount,
+    results
+  });
+});
+
 // Backward compatible demo endpoints
 app.post("/api/upload-books", upload.array("books", MAX_BOOK_FILES), async (req, res) => {
   try {
@@ -2466,6 +2650,89 @@ app.post("/api/start-quiz", (req, res) => {
   } catch (error) {
     return res.status(500).json({ error: error.message || "Unable to start quiz." });
   }
+});
+
+
+// Analytics endpoint - aggregated data for a test
+app.get("/api/tests/:testId/analytics", authRequired, requireRoles("teacher", "admin"), async (req, res) => {
+  const testId = req.params.testId;
+  const test = tests.get(testId);
+
+  if (!test) return res.status(404).json({ error: "Test not found." });
+  if (test.createdBy !== req.user.id && req.user.role !== "admin") {
+    return res.status(403).json({ error: "Access denied." });
+  }
+
+  // Get all attempts for this test
+  const attempts = Array.from(quizSessions.values()).filter((s) => s.testId === testId);
+  const completed = attempts.filter((s) => s.completed);
+
+  if (attempts.length === 0) {
+    return res.json({ empty: true, testTitle: test.title });
+  }
+
+  const stats = {
+    testTitle: test.title,
+    totalStudents: attempts.length,
+    completedCount: completed.length,
+    completionRate: ((completed.length / attempts.length) * 100).toFixed(1),
+    averageScore: 0,
+    highestScore: 0,
+    lowestScore: attempts.length > 0 ? Infinity : 0,
+    averageRisk: 0,
+    maxMarks: test.totalMarks,
+    riskDistribution: { low: 0, medium: 0, high: 0, critical: 0 }
+  };
+
+  let totalScore = 0;
+  let totalRisk = 0;
+
+  attempts.forEach((s) => {
+    const risk = s.proctor?.riskScore || 0;
+    totalRisk += risk;
+
+    if (risk < 30) stats.riskDistribution.low++;
+    else if (risk < 55) stats.riskDistribution.medium++;
+    else if (risk < 80) stats.riskDistribution.high++;
+    else stats.riskDistribution.critical++;
+
+    if (s.completed) {
+      const score = Number(s.teacherOverallMarks) || 0;
+      totalScore += score;
+      if (score > stats.highestScore) stats.highestScore = score;
+      if (score < stats.lowestScore) stats.lowestScore = score;
+    }
+  });
+
+  if (completed.length > 0) {
+    stats.averageScore = (totalScore / completed.length).toFixed(1);
+    if (stats.lowestScore === Infinity) stats.lowestScore = 0;
+  } else {
+    stats.lowestScore = 0;
+  }
+
+  stats.averageRisk = (totalRisk / attempts.length).toFixed(1);
+
+  return res.json(stats);
+});
+
+// Proctoring log endpoint - get detailed proctor events for a quiz
+app.get("/api/quiz/:quizId/proctor-logs", authRequired, requireRoles("teacher", "admin"), async (req, res) => {
+  const quizSession = quizSessions.get(req.params.quizId);
+  if (!quizSession) return res.status(404).json({ error: "Quiz session not found." });
+
+  const test = tests.get(quizSession.testId);
+  if (!test) return res.status(404).json({ error: "Associated test not found." });
+
+  if (test.createdBy !== req.user.id && req.user.role !== "admin") {
+    return res.status(403).json({ error: "Access denied." });
+  }
+
+  return res.json({
+    proctor: quizSession.proctor || { events: [], riskScore: 0, warningCount: 0 },
+    studentName: quizSession.studentName,
+    studentEmail: quizSession.studentEmail
+  });
 });
 
 app.use((error, _req, res, _next) => {

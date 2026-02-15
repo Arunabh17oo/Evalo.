@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 const AnimatedScene = lazy(() => import("./components/AnimatedScene"));
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5050/api";
@@ -121,7 +121,7 @@ function generateStudentReportPDF(attempt, test) {
       `${teacherTotalMarks.toFixed(1)} / ${test.totalMarks} (${teacherPercentage}%)`
     ]];
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: yPos,
       head: [["Student Name", "AI Score", "Teacher Score"]],
       body: tableData,
@@ -141,6 +141,43 @@ function generateStudentReportPDF(attempt, test) {
         0: { halign: "left", cellWidth: 60 },
         1: { cellWidth: 60 },
         2: { cellWidth: 60 }
+      }
+    });
+
+    // Detailed Responses Table
+    yPos = doc.lastAutoTable.finalY + 15;
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+    doc.setFont(undefined, "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(10, 95, 127);
+    doc.text("Question-wise Analysis", 20, yPos);
+
+    const detailedBody = (attempt.responses || []).map((r, idx) => {
+      const respText = r.answer || (typeof r.mcqChoice === 'number' ? `Option ${r.mcqChoice + 1}` : "N/A");
+      const analysis = r.feedback || r.aiReasoning || "No specific feedback recorded.";
+      return [
+        `Q${idx + 1}`,
+        respText,
+        `${r.percentage}%`,
+        analysis
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos + 6,
+      head: [["Q#", "Your Answer", "Score", "AI Analysis & Feedback"]],
+      body: detailedBody,
+      theme: "striped",
+      headStyles: { fillColor: [10, 95, 127], fontSize: 9 },
+      styles: { fontSize: 8, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 65 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 80 }
       }
     });
 
@@ -284,6 +321,139 @@ function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm,
   );
 }
 
+function AnalyticsModal({ open, onClose, data }) {
+  if (!open || !data) return null;
+
+  return (
+    <div className="modal-overlay">
+      <motion.div
+        className="modal-glass analytics-modal"
+        initial={{ opacity: 0, scale: 0.95, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+      >
+        <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <h3>📊 Test Analytics: {data.testTitle}</h3>
+          <button className="btn-close" onClick={onClose} style={{ background: "none", border: "none", color: "white", fontSize: "1.5rem", cursor: "pointer" }}>&times;</button>
+        </div>
+
+        {data.empty ? (
+          <div className="empty-state" style={{ textAlign: "center", padding: "2rem" }}>
+            <p className="hint">No student attempts yet for this test.</p>
+          </div>
+        ) : (
+          <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Score</label>
+              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageScore} / {data.maxMarks}</div>
+              <div className="mini-progress-bar" style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+                <div
+                  className="mini-progress-fill"
+                  style={{ width: `${(data.averageScore / data.maxMarks) * 100}%`, height: "100%", background: "#3b82f6" }}
+                />
+              </div>
+            </div>
+
+            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Highest Score</label>
+              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.highestScore}</div>
+            </div>
+
+            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Completion Rate</label>
+              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.completionRate}%</div>
+              <p className="hint" style={{ fontSize: "0.75rem" }}>{data.completedCount} / {data.totalStudents} students</p>
+            </div>
+
+            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Proctor Risk</label>
+              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageRisk}%</div>
+              <p className="hint" style={{ fontSize: "0.75rem" }}>Risk: {data.averageRisk < 30 ? "Low" : data.averageRisk < 55 ? "Medium" : "High"}</p>
+            </div>
+
+            <div className="risk-dist-section" style={{ gridColumn: "1 / -1", marginTop: "1rem" }}>
+              <h4 style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>🛡️ Proctoring Risk Distribution</h4>
+              <div className="risk-bar-chart" style={{ display: "flex", height: "12px", borderRadius: "6px", overflow: "hidden", background: "rgba(255,255,255,0.1)" }}>
+                <div className="risk-segment" style={{ flex: data.riskDistribution?.low || 0, background: "#10b981" }} title="Low Risk"></div>
+                <div className="risk-segment" style={{ flex: data.riskDistribution?.medium || 0, background: "#f59e0b" }} title="Medium Risk"></div>
+                <div className="risk-segment" style={{ flex: data.riskDistribution?.high || 0, background: "#ef4444" }} title="High Risk"></div>
+                <div className="risk-segment" style={{ flex: data.riskDistribution?.critical || 0, background: "#7f1d1d" }} title="Critical Risk"></div>
+              </div>
+              <div className="risk-legend" style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.7rem", opacity: 0.8 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", display: "inline-block" }}></i> Low</span>
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#f59e0b", display: "inline-block" }}></i> Med</span>
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444", display: "inline-block" }}></i> High</span>
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#7f1d1d", display: "inline-block" }}></i> Crit</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn-soft" onClick={onClose}>Close</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function ProctorLogModal({ open, onClose, logs }) {
+  if (!open || !logs) return null;
+
+  return (
+    <div className="modal-overlay">
+      <motion.div
+        className="modal-glass proctor-modal"
+        style={{ maxWidth: "800px", width: "90%" }}
+        initial={{ opacity: 0, scale: 0.95, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+      >
+        <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <h3>🔒 Proctoring Logs: {logs.studentName}</h3>
+          <button className="btn-close" onClick={onClose} style={{ background: "none", border: "none", color: "white", fontSize: "1.5rem", cursor: "pointer" }}>&times;</button>
+        </div>
+
+        <div className="proctor-summary" style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div className="pill" style={{ background: logs.proctor.riskScore > 50 ? "rgba(239, 68, 68, 0.2)" : "rgba(16, 185, 129, 0.2)" }}>
+            Risk Score: {logs.proctor.riskScore}%
+          </div>
+          <div className="pill">Warnings: {logs.proctor.warningCount}</div>
+        </div>
+
+        <div className="log-container" style={{ maxHeight: "400px", overflowY: "auto", background: "rgba(0,0,0,0.1)", borderRadius: "8px", padding: "0.5rem" }}>
+          {logs.proctor.events && logs.proctor.events.length > 0 ? (
+            <table className="log-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <thead>
+                <tr style={{ background: "rgba(255,255,255,0.05)", textAlign: "left" }}>
+                  <th style={{ padding: "0.75rem" }}>Time</th>
+                  <th style={{ padding: "0.75rem" }}>Event</th>
+                  <th style={{ padding: "0.75rem" }}>Risk</th>
+                  <th style={{ padding: "0.75rem" }}>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.proctor.events.map((e, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: e.riskScore > 50 ? "rgba(239, 68, 68, 0.05)" : "transparent" }}>
+                    <td style={{ padding: "0.75rem" }}>{new Date(e.at).toLocaleTimeString()}</td>
+                    <td style={{ padding: "0.75rem", textTransform: "capitalize" }}>{e.type.replace(/_/g, " ")}</td>
+                    <td style={{ padding: "0.75rem" }}>{e.riskScore}%</td>
+                    <td style={{ padding: "0.75rem" }} className="hint">{typeof e.meta === "object" ? JSON.stringify(e.meta) : String(e.meta)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="empty-hint" style={{ textAlign: "center", padding: "2rem" }}>No proctoring events logged.</p>
+          )}
+        </div>
+
+        <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn-soft" onClick={onClose}>Close</button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || "");
   const [user, setUser] = useState(null);
@@ -318,14 +488,57 @@ export default function App() {
     difficulty: "medium",
     questionFormat: "subjective",
     topic: "",
-    startsAt: ""
+    startsAt: (() => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      return tomorrow.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+    })(),
+    mcqCount: 0,
+    subjectiveCount: 0
   });
   const [createdTest, setCreatedTest] = useState(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Restore draft from localStorage on mount
+  useEffect(() => {
+    if (!draftRestored) {
+      try {
+        const savedDraft = localStorage.getItem('evalo_test_draft');
+        if (savedDraft) {
+          const draft = JSON.parse(savedDraft);
+          setCreateTestForm(draft);
+          addToast('📝 Draft restored from previous session', 'success');
+        }
+      } catch (err) {
+        console.error('Failed to restore draft:', err);
+      }
+      setDraftRestored(true);
+    }
+  }, [draftRestored]);
+
+  // Auto-save draft to localStorage every 10 seconds
+  useEffect(() => {
+    if (!draftRestored) return;
+    const timer = setInterval(() => {
+      try {
+        localStorage.setItem('evalo_test_draft', JSON.stringify(createTestForm));
+      } catch (err) {
+        console.error('Failed to save draft:', err);
+      }
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [createTestForm, draftRestored]);
+
   const [editingTestId, setEditingTestId] = useState("");
 
   const [joinCode, setJoinCode] = useState("");
   const [quizId, setQuizId] = useState("");
   const [joinedTest, setJoinedTest] = useState(null);
+  const [testAnalytics, setTestAnalytics] = useState(null);
+  const [proctorLogs, setProctorLogs] = useState(null);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showProctorModal, setShowProctorModal] = useState(false);
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState("");
   const [mcqChoice, setMcqChoice] = useState(null);
@@ -335,6 +548,13 @@ export default function App() {
   const [proctor, setProctor] = useState({ riskScore: 0, warningCount: 0, warningMessages: [] });
   const [proctorAlert, setProctorAlert] = useState("");
   const [marksInfo, setMarksInfo] = useState({ totalMarks: null, marksPerQuestion: null });
+
+  // Auto-save state
+  const [autoSaveStatus, setAutoSaveStatus] = useState(""); // "saving", "saved", "error"
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [wordCount, setWordCount] = useState(0);
+  const [characterCount, setCharacterCount] = useState(0);
+  const autoSaveTimerRef = useRef(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -361,12 +581,17 @@ export default function App() {
   const monitorIntervalRef = useRef(null);
   const timerIntervalRef = useRef(null);
   const proctorListenersRef = useRef([]);
+  const lastAutoSaveAnswerRef = useRef("");
 
   const isAdmin = user?.role === "admin";
   const isTeacher = user?.role === "teacher" || user?.role === "admin";
   const isStudent = user?.role === "student" || user?.role === "admin";
   const examActive = Boolean(quizId && question && !result);
   const [showPublishedAttempts, setShowPublishedAttempts] = useState(false);
+
+  // Bulk publish state
+  const [selectedQuizIds, setSelectedQuizIds] = useState([]);
+  const [bulkPublishing, setBulkPublishing] = useState(false);
 
   const fullscreenCapable = Boolean(document?.documentElement?.requestFullscreen);
   const fullscreenLocked = Boolean(examActive && question && fullscreenCapable && !isFullscreen);
@@ -521,10 +746,65 @@ export default function App() {
       const { data } = await axios.get(`${API_BASE}/tests/${testId}/attempts`, authConfig(token));
       setTestAttempts(data.attempts || []);
       setReviewTestId(testId);
+      setSelectedQuizIds([]); // Clear selection when loading new test
     } catch (err) {
       setError(appError(err, "Unable to load test attempts."));
     } finally {
       setAttemptBusy(false);
+    }
+  }
+
+  async function fetchTestAnalytics(testId) {
+    setBusy(true);
+    try {
+      const { data } = await axios.get(`${API_BASE}/tests/${testId}/analytics`, authConfig(token));
+      setTestAnalytics(data);
+      setShowAnalyticsModal(true);
+    } catch (err) {
+      addToast(appError(err, "Failed to load analytics"), "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fetchProctorLogs(quizId) {
+    setBusy(true);
+    try {
+      const { data } = await axios.get(`${API_BASE}/quiz/${quizId}/proctor-logs`, authConfig(token));
+      setProctorLogs(data);
+      setShowProctorModal(true);
+    } catch (err) {
+      addToast(appError(err, "Failed to load proctor logs"), "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function bulkPublishResults() {
+    if (!reviewTestId || selectedQuizIds.length === 0) return;
+
+    setBulkPublishing(true);
+    try {
+      const { data } = await axios.post(
+        `${API_BASE}/tests/${reviewTestId}/bulk-publish`,
+        { quizIds: selectedQuizIds },
+        authConfig(token)
+      );
+
+      if (data.successCount > 0) {
+        addToast(`✅ Published ${data.successCount} result(s) successfully!`, "success");
+      }
+      if (data.failureCount > 0) {
+        addToast(`⚠️ ${data.failureCount} result(s) could not be published. Check individual errors.`, "error");
+      }
+
+      // Reload attempts to reflect changes
+      await loadTestAttempts(reviewTestId);
+      setSelectedQuizIds([]);
+    } catch (err) {
+      setError(appError(err, "Bulk publish failed."));
+    } finally {
+      setBulkPublishing(false);
     }
   }
 
@@ -762,6 +1042,33 @@ export default function App() {
     }
   }
 
+  // Clear draft from localStorage and reset form
+  function clearDraft() {
+    try {
+      localStorage.removeItem('evalo_test_draft');
+      setCreateTestForm({
+        title: "",
+        durationMinutes: 35,
+        questionCount: 6,
+        totalMarks: 100,
+        difficulty: "medium",
+        questionFormat: "subjective",
+        topic: "",
+        startsAt: (() => {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(9, 0, 0, 0);
+          return tomorrow.toISOString().slice(0, 16);
+        })(),
+        mcqCount: 0,
+        subjectiveCount: 0
+      });
+      addToast('🗑️ Draft cleared', 'success');
+    } catch (err) {
+      console.error('Failed to clear draft:', err);
+    }
+  }
+
   async function createTest() {
     setBusy(true);
     setError("");
@@ -773,7 +1080,22 @@ export default function App() {
       const durationMinutes = clampInt(createTestForm.durationMinutes, 5, 180);
       const questionCount = clampInt(createTestForm.questionCount, 4, 20);
       const totalMarks = clampInt(createTestForm.totalMarks, 10, 1000);
-      const startsAtIso = createTestForm.startsAt ? new Date(createTestForm.startsAt).toISOString() : undefined;
+
+      if (!createTestForm.startsAt) {
+        throw new Error("Start Date and Time are required.");
+      }
+
+      // Validate mixed format
+      if (createTestForm.questionFormat === "mixed") {
+        if (createTestForm.mcqCount + createTestForm.subjectiveCount !== questionCount) {
+          throw new Error(`Mixed format: MCQ (${createTestForm.mcqCount}) + Subjective (${createTestForm.subjectiveCount}) must equal total questions (${questionCount})`);
+        }
+        if (createTestForm.mcqCount < 1 || createTestForm.subjectiveCount < 1) {
+          throw new Error("Mixed format requires at least 1 MCQ and 1 Subjective question.");
+        }
+      }
+
+      const startsAtIso = new Date(createTestForm.startsAt).toISOString();
 
       const payload = {
         title: createTestForm.title || "Evalo Test",
@@ -784,7 +1106,12 @@ export default function App() {
         difficulty: createTestForm.difficulty,
         topic: createTestForm.topic,
         questionFormat: createTestForm.questionFormat,
-        startsAt: startsAtIso
+        startsAt: startsAtIso,
+        // Include mixed format configuration
+        ...(createTestForm.questionFormat === "mixed" && {
+          mcqCount: createTestForm.mcqCount,
+          subjectiveCount: createTestForm.subjectiveCount
+        })
       };
 
       if (editingTestId) {
@@ -1042,6 +1369,66 @@ export default function App() {
     }
   }
 
+  // Auto-save function - saves answer every 30 seconds
+  async function autoSaveAnswer() {
+    if (!quizId || !answer || answer === lastAutoSaveAnswerRef.current) {
+      return; // No changes to save
+    }
+
+    try {
+      setAutoSaveStatus("saving");
+      const response = await axios.patch(
+        `${API_BASE}/quiz/${quizId}/autosave`,
+        { answer },
+        authConfig(token)
+      );
+
+      if (response.data.saved) {
+        setAutoSaveStatus("saved");
+        setLastSavedAt(new Date());
+        lastAutoSaveAnswerRef.current = answer;
+
+        // Clear status after 2 seconds
+        setTimeout(() => setAutoSaveStatus(""), 2000);
+      }
+    } catch (err) {
+      console.error("Auto-save failed:", err);
+      setAutoSaveStatus("error");
+      setTimeout(() => setAutoSaveStatus(""), 3000);
+    }
+  }
+
+  // Update word and character count when answer changes
+  useEffect(() => {
+    const words = answer.trim().split(/\s+/).filter(w => w.length > 0);
+    setWordCount(words.length);
+    setCharacterCount(answer.length);
+  }, [answer]);
+
+  // Auto-save effect - runs every 30 seconds
+  useEffect(() => {
+    if (!quizId || !question || result) {
+      return; // Don't auto-save if quiz is not active
+    }
+
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+    }
+
+    // Set up auto-save timer
+    autoSaveTimerRef.current = setInterval(() => {
+      autoSaveAnswer();
+    }, 30000); // 30 seconds
+
+    // Cleanup on unmount
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+      }
+    };
+  }, [quizId, question, result, answer]);
+
   async function submitAnswer(event) {
     event.preventDefault();
     setBusy(true);
@@ -1073,6 +1460,7 @@ export default function App() {
       if (data.completed) {
         setResult(data.result);
         setQuestion(null);
+        setLastEvaluation(null);
         stopExamEnvironment();
       } else {
         setQuestion(data.question);
@@ -1090,6 +1478,43 @@ export default function App() {
       loadMyAttempts();
     }
   }, [user, token]);
+
+  // Background polling for result updates (every 30 seconds if result is pending)
+  useEffect(() => {
+    if (!token || !result || result.teacherPublishedAt) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE}/quiz/${quizId}/result`, authConfig(token));
+        if (data && data.teacherPublishedAt) {
+          setResult(data);
+          addToast("🎉 Your marks have been published by the teacher!", "success");
+        }
+      } catch (err) {
+        // fail silently
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [token, result, quizId]);
+
+  async function refreshResultSync() {
+    if (!token || !result) return;
+    setBusy(true);
+    try {
+      const { data } = await axios.get(`${API_BASE}/quiz/${result.quizId || result.id}/result`, authConfig(token));
+      setResult(data || result);
+      if (data?.teacherPublishedAt) {
+        addToast("Scores updated.", "success");
+      } else {
+        addToast("Scores are still pending teacher review.", "info");
+      }
+    } catch (err) {
+      setError(appError(err, "Sync failed."));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // Marks-based tests: teacher controls question count and duration directly.
 
@@ -1119,6 +1544,20 @@ export default function App() {
         ))}
       </div>
 
+      {/* Analytics Modal */}
+      <AnalyticsModal
+        open={showAnalyticsModal}
+        onClose={() => setShowAnalyticsModal(false)}
+        data={testAnalytics}
+      />
+
+      {/* Proctoring Log Modal */}
+      <ProctorLogModal
+        open={showProctorModal}
+        onClose={() => setShowProctorModal(false)}
+        logs={proctorLogs}
+      />
+
       <AuthModal
         open={authOpen}
         mode={authMode}
@@ -1141,8 +1580,10 @@ export default function App() {
             ) : (
               <>
                 <button className="btn-soft" onClick={() => setActivePage("home")}>Home</button>
-                {isTeacher ? (
-                  <button className="btn-soft" onClick={() => setActivePage("admin")}>Admin</button>
+                {(isTeacher || isAdmin) ? (
+                  <button className="btn-soft" onClick={() => setActivePage("admin")}>
+                    {isAdmin ? "Admin Control" : "Teacher Hub"}
+                  </button>
                 ) : null}
                 <span className="role-badge">{user.name} ({user.role})</span>
                 <button onClick={logout}>Logout</button>
@@ -1220,8 +1661,27 @@ export default function App() {
                   <>
                     <div className="evaluation gap-top">
                       <div className="list-header">
+                        <h3>More Admin Functions</h3>
+                        <span className="pill success">System Control</span>
+                      </div>
+                      <p className="hint">Utility functions for platform maintenance and auditing.</p>
+                      <div className="row gap-top">
+                        <button className="btn-soft btn-small" onClick={() => addToast("Audit Log fetched (Demo)", "info")}>
+                          View Audit Logs
+                        </button>
+                        <button className="btn-soft btn-small" onClick={() => addToast("Cache cleared (Demo)", "info")}>
+                          Clear System Cache
+                        </button>
+                        <button className="btn-soft btn-small" onClick={() => addToast("Storage optimized (Demo)", "info")}>
+                          Optimize Storage
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="evaluation gap-top">
+                      <div className="list-header">
                         <h3>Platform Reset</h3>
-                        <span className="pill danger">Admin Only</span>
+                        <span className="pill danger">High Risk</span>
                       </div>
                       <p className="hint">Start from 0 by wiping tests, books, attempts, and history.</p>
                       <div className="row gap-top">
@@ -1478,7 +1938,7 @@ export default function App() {
             </motion.section>
 
 
-            {isTeacher ? (
+            {user?.role === "teacher" ? (
               <section className="card split-card">
                 <div>
                   <h2>Teacher Panel</h2>
@@ -1578,11 +2038,27 @@ export default function App() {
                       />
                     </label>
                     <label>
-                      Start Date/Time (optional)
+                      Start Date *
                       <input
-                        type="datetime-local"
-                        value={createTestForm.startsAt}
-                        onChange={(e) => setCreateTestForm((p) => ({ ...p, startsAt: e.target.value }))}
+                        type="date"
+                        value={createTestForm.startsAt ? createTestForm.startsAt.split('T')[0] : ''}
+                        onChange={(e) => {
+                          const currentTime = createTestForm.startsAt ? createTestForm.startsAt.split('T')[1] || '09:00' : '09:00';
+                          setCreateTestForm((p) => ({ ...p, startsAt: e.target.value ? `${e.target.value}T${currentTime}` : '' }));
+                        }}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Start Time *
+                      <input
+                        type="time"
+                        value={createTestForm.startsAt ? createTestForm.startsAt.split('T')[1] || '' : ''}
+                        onChange={(e) => {
+                          const currentDate = createTestForm.startsAt ? createTestForm.startsAt.split('T')[0] : new Date().toISOString().split('T')[0];
+                          setCreateTestForm((p) => ({ ...p, startsAt: e.target.value ? `${currentDate}T${e.target.value}` : '' }));
+                        }}
+                        required
                       />
                     </label>
                     <label>
@@ -1600,16 +2076,85 @@ export default function App() {
                       Question Type
                       <select
                         value={createTestForm.questionFormat}
-                        onChange={(e) => setCreateTestForm((p) => ({ ...p, questionFormat: e.target.value }))}
+                        onChange={(e) => {
+                          const format = e.target.value;
+                          setCreateTestForm((p) => {
+                            // If switching to mixed, set default split
+                            if (format === "mixed") {
+                              const half = Math.floor(p.questionCount / 2);
+                              return {
+                                ...p,
+                                questionFormat: format,
+                                mcqCount: half,
+                                subjectiveCount: p.questionCount - half
+                              };
+                            }
+                            return { ...p, questionFormat: format, mcqCount: 0, subjectiveCount: 0 };
+                          });
+                        }}
                       >
                         <option value="subjective">Subjective</option>
                         <option value="mcq">MCQ</option>
                         <option value="mixed">Mixed</option>
                       </select>
                     </label>
+
+                    {createTestForm.questionFormat === "mixed" && (
+                      <>
+                        <label>
+                          MCQ Questions *
+                          <input
+                            type="number"
+                            min="1"
+                            max={createTestForm.questionCount - 1}
+                            value={createTestForm.mcqCount}
+                            onChange={(e) => {
+                              const mcq = parseInt(e.target.value) || 0;
+                              setCreateTestForm((p) => ({
+                                ...p,
+                                mcqCount: mcq,
+                                subjectiveCount: p.questionCount - mcq
+                              }));
+                            }}
+                            required
+                          />
+                        </label>
+                        <label>
+                          Subjective Questions *
+                          <input
+                            type="number"
+                            min="1"
+                            max={createTestForm.questionCount - 1}
+                            value={createTestForm.subjectiveCount}
+                            onChange={(e) => {
+                              const subj = parseInt(e.target.value) || 0;
+                              setCreateTestForm((p) => ({
+                                ...p,
+                                subjectiveCount: subj,
+                                mcqCount: p.questionCount - subj
+                              }));
+                            }}
+                            required
+                          />
+                        </label>
+                        <p className="hint" style={{ marginTop: '-10px', fontSize: '0.85em', color: createTestForm.mcqCount + createTestForm.subjectiveCount === createTestForm.questionCount ? '#63f2de' : '#ff6b6b' }}>
+                          {createTestForm.mcqCount} MCQ + {createTestForm.subjectiveCount} Subjective = {createTestForm.mcqCount + createTestForm.subjectiveCount} / {createTestForm.questionCount} total
+                          {createTestForm.mcqCount + createTestForm.subjectiveCount !== createTestForm.questionCount && " ⚠️ Must equal total!"}
+                        </p>
+                      </>
+                    )}
                     <div className="row">
                       <button type="button" onClick={createTest} disabled={busy}>
                         {busy ? "Saving..." : editingTestId ? "Save Changes" : "Create / Schedule Test"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-soft btn-small"
+                        onClick={clearDraft}
+                        disabled={busy}
+                        title="Clear draft and reset form"
+                      >
+                        🗑️ Clear Draft
                       </button>
                       {editingTestId ? (
                         <button
@@ -1646,57 +2191,87 @@ export default function App() {
 
                 <div>
                   <h2>Teacher Assets</h2>
-                  <div className="evaluation">
-                    <h3>Uploaded Book Sessions</h3>
-                    {teacherBooks.length ? (
-                      <ul className="flat-list">
-                        {teacherBooks.slice(0, 3).map((book) => (
-                          <li key={book.id} className="list-row">
-                            <div className="list-main">
-                              <div className="list-title">{book.title || book.fileNames?.[0] || book.id.slice(0, 8)}</div>
-                              {book.id ? <div className="hint">Session: {book.id.slice(0, 8)}…</div> : null}
-                            </div>
-                            <div className="list-actions">
-                              <button className="btn-soft" onClick={() => setBookSessionId(book.id)}>
-                                Use
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="hint">No book sessions yet.</p>
-                    )}
-                  </div>
 
                   <div className="evaluation">
                     <h3>My Tests</h3>
                     {teacherTests.length ? (
-                      <ul className="flat-list">
+                      <div className="test-grid">
                         {teacherTests.map((test) => (
-                          <li key={test.id} className="list-row">
-                            <div className="list-main">
-                              <div className="list-title">{test.title}</div>
-                              <div className="pill-wrap">
-                                <span className="pill">Code: {test.joinCode}</span>
-                                {test.topic ? <span className="pill">Topic: {test.topic}</span> : null}
-                                {test.difficulty ? <span className="pill">Diff: {test.difficulty}</span> : null}
-                                {test.questionFormat ? <span className="pill">Type: {test.questionFormat}</span> : null}
-                                {test.totalMarks ? <span className="pill">Marks: {test.totalMarks}</span> : null}
-                                {test.startsAt ? (
-                                  <span className="pill">
-                                    {Date.now() < new Date(test.startsAt).getTime() ? "Starts" : "Started"}:{" "}
-                                    {formatShortDateTime(test.startsAt)}
-                                  </span>
-                                ) : null}
+                          <div key={test.id} className="test-card">
+                            {/* Card Header */}
+                            <div className="test-card-header">
+                              <h4 className="test-card-title">{test.title}</h4>
+                              <div className="test-card-code">
+                                {test.joinCode}
                               </div>
                             </div>
-                            <div className="list-actions">
-                              <button className="btn-soft btn-small" onClick={() => loadTestAttempts(test.id)} disabled={attemptBusy}>
-                                Review
+
+                            {/* Card Body - Metadata */}
+                            <div className="test-card-body">
+                              {/* Question Format */}
+                              <div className="test-meta-row">
+                                <span className="test-meta-label">📝 Format:</span>
+                                {test.questionFormat === "mixed" && test.mcqCount && test.subjectiveCount ? (
+                                  <span className="format-badge mixed">
+                                    {test.mcqCount} MCQ + {test.subjectiveCount} Subjective
+                                  </span>
+                                ) : (
+                                  <span className="format-badge">
+                                    {test.questionFormat === "mcq" ? "🔘 MCQ" :
+                                      test.questionFormat === "subjective" ? "✍️ Subjective" :
+                                        "📋 Mixed"}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Topic */}
+                              {test.topic && (
+                                <div className="test-meta-row">
+                                  <span className="test-meta-label">📚 Topic:</span>
+                                  <span className="test-meta-value">{test.topic}</span>
+                                </div>
+                              )}
+
+                              {/* Marks & Duration */}
+                              <div className="test-meta-row">
+                                <span className="test-meta-label">📊 Marks:</span>
+                                <span className="test-meta-value">{test.totalMarks} pts</span>
+                                <span style={{ marginLeft: '12px', color: '#aac8e4' }}>⏱️ {test.durationMinutes || 35} min</span>
+                              </div>
+
+                              {/* Difficulty */}
+                              {test.difficulty && (
+                                <div className="test-meta-row">
+                                  <span className="test-meta-label">🎯 Difficulty:</span>
+                                  <span className="test-meta-value" style={{
+                                    color: test.difficulty === 'easy' ? '#63f2de' :
+                                      test.difficulty === 'hard' ? '#ff6b6b' : '#ffd93d'
+                                  }}>
+                                    {test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1)}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Start Date/Time */}
+                              {test.startsAt && (
+                                <div className="test-meta-row">
+                                  <span className="test-meta-label">🗓️ {Date.now() < new Date(test.startsAt).getTime() ? "Starts:" : "Started:"}</span>
+                                  <span className="test-meta-value">{formatShortDateTime(test.startsAt)}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Card Footer - Actions */}
+                            <div className="test-card-footer">
+                              <button
+                                className="btn-card-primary"
+                                onClick={() => loadTestAttempts(test.id)}
+                                disabled={attemptBusy}
+                              >
+                                👥 Review Submissions
                               </button>
                               <button
-                                className="btn-soft btn-small"
+                                className="btn-card-secondary"
                                 onClick={() => {
                                   setEditingTestId(test.id);
                                   setBookSessionId(test.bookSessionId);
@@ -1709,86 +2284,158 @@ export default function App() {
                                     difficulty: test.difficulty || p.difficulty,
                                     questionFormat: test.questionFormat || p.questionFormat,
                                     topic: test.topic || "",
-                                    startsAt: isoToLocalDatetimeInput(test.startsAt)
+                                    startsAt: isoToLocalDatetimeInput(test.startsAt),
+                                    mcqCount: test.mcqCount || 0,
+                                    subjectiveCount: test.subjectiveCount || 0
                                   }));
                                   pushToast("Editing test settings.", "info");
                                 }}
                                 disabled={attemptBusy}
                               >
-                                Edit
+                                ✏️ Edit
                               </button>
                             </div>
-                          </li>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     ) : (
-                      <p className="hint">No tests yet.</p>
+                      <div className="empty-state">
+                        <div className="empty-state-icon">📝</div>
+                        <p className="empty-state-text">No tests created yet. Create your first test above!</p>
+                      </div>
                     )}
                   </div>
 
-                  {reviewTestId ? (
-                    <div className="evaluation">
-                      <div className="list-header">
-                        <h3>Test Attempts</h3>
-                        <button type="button" className="btn-soft btn-small" onClick={() => setShowPublishedAttempts((v) => !v)}>
-                          {showPublishedAttempts ? "Hide Published" : "Show Published"}
-                        </button>
-                      </div>
-                      {(() => {
-                        const visible = (testAttempts || []).filter((a) => {
-                          // Hide finalized attempts (published 3+ times)
-                          if (Number(a.publishCount) >= 3) return false;
-                          // Show based on published toggle
-                          return showPublishedAttempts ? true : (a.completed && !a.teacherPublishedAt);
-                        });
-                        return visible.length ? (
-                          <ul className="flat-list">
-                            {visible.map((a) => (
-                              <li key={a.quizId} className="list-row">
-                                <div className="list-main">
-                                  <div className="list-title">{a.studentName || a.studentEmail || a.userId}</div>
-                                  <div className="pill-wrap">
-                                    <span className="pill">{a.completed ? "Completed" : "In progress"}</span>
-                                    {a.teacherPublishedAt ? (
-                                      <span className="pill">
-                                        {Number(a.publishCount) >= 3 ? "Finalized" : "Published"}{" "}
-                                        {a.publishCount ? `(${a.publishCount}/3)` : ""}
-                                      </span>
-                                    ) : a.completed ? (
-                                      <>
-                                        <span className="pill pill-success">Submitted</span>
-                                        <span className="pill danger">Needs Review</span>
-                                      </>
-                                    ) : (
-                                      <span className="pill">Awaiting submission</span>
-                                    )}
+                  {reviewTestId ? (() => {
+                    // Find the test being reviewed
+                    const currentTest = teacherTests.find(t => t.id === reviewTestId);
+
+                    return (
+                      <div className="evaluation">
+                        <div className="list-header">
+                          <h3>Test Attempts{currentTest ? `: ${currentTest.title}` : ''}</h3>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            {selectedQuizIds.length > 0 && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn-primary btn-small"
+                                  onClick={bulkPublishResults}
+                                  disabled={bulkPublishing}
+                                >
+                                  {bulkPublishing ? '⏳ Publishing...' : `📤 Publish Selected (${selectedQuizIds.length})`}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-soft btn-small"
+                                  onClick={() => setSelectedQuizIds([])}
+                                >
+                                  ✖ Clear
+                                </button>
+                              </>
+                            )}
+                            <button type="button" className="btn-soft btn-small" onClick={() => setShowPublishedAttempts((v) => !v)}>
+                              {showPublishedAttempts ? "🔽 Hide Published" : "🔼 Show Published"}
+                            </button>
+                          </div>
+                        </div>
+                        {(() => {
+                          const visible = (testAttempts || []).filter((a) => {
+                            // Hide finalized attempts (published 3+ times)
+                            if (Number(a.publishCount) >= 3) return false;
+                            // Show based on published toggle
+                            return showPublishedAttempts ? true : (a.completed && !a.teacherPublishedAt);
+                          });
+                          return visible.length ? (
+                            <div style={{ marginTop: '16px' }}>
+                              {visible.map((a) => {
+                                const isPublishable = a.completed && Number.isFinite(Number(a.teacherOverallMarks));
+                                const isSelected = selectedQuizIds.includes(a.quizId);
+
+                                return (
+                                  <div key={a.quizId} className="attempt-card">
+                                    <div className="attempt-info">
+                                      {isPublishable && (
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedQuizIds([...selectedQuizIds, a.quizId]);
+                                            } else {
+                                              setSelectedQuizIds(selectedQuizIds.filter(id => id !== a.quizId));
+                                            }
+                                          }}
+                                          style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                      )}
+                                      <div className="attempt-name">
+                                        {a.studentName || a.studentEmail || a.userId}
+                                      </div>
+                                      <div className="attempt-status-row">
+                                        {a.completed ? (
+                                          <span className="pill pill-success">✓ Submitted</span>
+                                        ) : (
+                                          <span className="pill">🔄 In Progress</span>
+                                        )}
+
+                                        {a.teacherPublishedAt ? (
+                                          <span className="pill" style={{ background: 'rgba(99, 242, 222, 0.2)', color: '#63f2de' }}>
+                                            {Number(a.publishCount) >= 3 ? "✓ Finalized" : "📤 Published"}{" "}
+                                            {a.publishCount ? `(${a.publishCount}/3)` : ""}
+                                          </span>
+                                        ) : a.completed ? (
+                                          <span className="pill danger">⚠️ Needs Review</span>
+                                        ) : (
+                                          <span className="pill" style={{ opacity: 0.6 }}>⏳ Awaiting Submission</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="attempt-actions">
+                                      <button
+                                        className="btn-card-primary"
+                                        onClick={() => loadReviewQuiz(a.quizId)}
+                                        disabled={attemptBusy}
+                                        style={{ minWidth: '80px' }}
+                                      >
+                                        📝 Open
+                                      </button>
+                                      <button
+                                        className="btn-card-secondary"
+                                        onClick={() => fetchProctorLogs(a.quizId)}
+                                        disabled={attemptBusy}
+                                        style={{ minWidth: '80px' }}
+                                        title="View proctoring logs"
+                                      >
+                                        🔒 Logs
+                                      </button>
+                                      {a.teacherPublishedAt && currentTest && (
+                                        <button
+                                          className="btn-card-secondary"
+                                          onClick={() => generateStudentReportPDF(a, currentTest)}
+                                          title="Download PDF Report"
+                                          style={{ minWidth: '80px' }}
+                                        >
+                                          📄 PDF
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="list-actions">
-                                  <button className="btn-soft btn-small" onClick={() => loadReviewQuiz(a.quizId)} disabled={attemptBusy}>
-                                    Open
-                                  </button>
-                                  {a.teacherPublishedAt && (
-                                    <button
-                                      className="btn-soft btn-small"
-                                      onClick={() => generateStudentReportPDF(a, test)}
-                                      title="Download PDF Report"
-                                    >
-                                      📄 PDF
-                                    </button>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="hint">
-                            {showPublishedAttempts ? "No attempts yet." : "No pending attempts. In-progress and published attempts are hidden."}
-                          </p>
-                        );
-                      })()}
-                    </div>
-                  ) : null}
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="empty-state">
+                              <div className="empty-state-icon">📋</div>
+                              <p className="empty-state-text">
+                                {showPublishedAttempts ? "No attempts yet." : "No pending submissions to review."}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })() : null}
 
                   {reviewDetail ? (
                     <div className="evaluation">
@@ -1827,7 +2474,12 @@ export default function App() {
 
                             <div className="form-grid">
                               {(reviewDetail.responses || []).map((r) => (
-                                <div key={r.question?.id} className="evaluation">
+                                <div key={r.question?.id} className="evaluation" style={{ position: 'relative' }}>
+                                  {r.isAI && (
+                                    <span className="pill success" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', padding: '2px 8px' }}>
+                                      🤖 AI Suggested
+                                    </span>
+                                  )}
                                   <p className="prompt">{r.question?.prompt}</p>
                                   {r.question?.type === "mcq" ? (
                                     <p className="hint">
@@ -1838,6 +2490,22 @@ export default function App() {
                                     </p>
                                   ) : (
                                     <p className="hint">Student Answer: {r.answer}</p>
+                                  )}
+
+                                  {r.isAI && (
+                                    <div className="ai-feedback-box" style={{ background: 'rgba(59, 130, 246, 0.04)', marginBottom: '1rem', borderLeftColor: '#3b82f6' }}>
+                                      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <strong>AI Analysis: {r.percentage}%</strong>
+                                        {r.aiConfidence && <span className="hint" style={{ fontSize: '0.7rem' }}>Confidence: {Math.round(r.aiConfidence * 100)}%</span>}
+                                      </div>
+                                      <p className="hint" style={{ color: '#e2e8f0' }}>{r.feedback}</p>
+                                      {r.aiReasoning && (
+                                        <details style={{ marginTop: '0.5rem' }}>
+                                          <summary className="ai-reasoning-summary" style={{ fontSize: '0.8rem' }}>View Logic</summary>
+                                          <p className="hint" style={{ fontSize: '0.8rem', paddingTop: '0.5rem', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '0.5rem' }}>{r.aiReasoning}</p>
+                                        </details>
+                                      )}
+                                    </div>
                                   )}
                                   <div className="row">
                                     <label>
@@ -1933,10 +2601,11 @@ export default function App() {
                     </div>
                   ) : null}
                 </div>
-              </section>
-            ) : null}
+              </section >
+            ) : null
+            }
 
-            {isStudent ? (
+            {user?.role === "student" ? (
               <section className="card split-card">
                 <div>
                   <h2>Student Panel</h2>
@@ -1948,10 +2617,17 @@ export default function App() {
                         Enter Join Code
                         <input
                           value={joinCode}
-                          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                          onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (joinCode && !busy) joinTest();
+                            }
+                          }}
                           placeholder="e.g. A9P3QX"
                         />
                       </label>
+                      {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
                       <button type="button" onClick={joinTest} disabled={busy}>
                         {busy ? "Joining..." : "Join Test"}
                       </button>
@@ -2031,198 +2707,368 @@ export default function App() {
                   </div>
                 ) : null}
               </section>
-            ) : null}
+            ) : null
+            }
 
-            {isStudent && selectedAttemptDetail ? (
-              <section className="card evaluation">
-                <h3>Checked Answers (Review)</h3>
-                {!selectedAttemptDetail.status?.canSeeAi ? (
-                  <p className="hint">AI checking in progress. Your checked results will appear after publish time.</p>
-                ) : null}
-                {selectedAttemptResult && !selectedAttemptResult.pending ? (
-                  <div className="evaluation gap-top">
-                    {selectedAttemptResult.remark?.label ? (
-                      <p className="result-remark">
-                        <span className="result-emoji" aria-hidden>{selectedAttemptResult.remark.emoji || ""}</span>
-                        <span>{selectedAttemptResult.remark.label}</span>
-                      </p>
-                    ) : null}
-                    <p>Average Score: {selectedAttemptResult.averagePercentage}%</p>
-                    {typeof selectedAttemptResult.marksObtained === "number" ? (
-                      <p>
-                        Total Marks: {selectedAttemptResult.marksObtained} / {selectedAttemptResult.totalMarks}
-                      </p>
-                    ) : null}
-                    {selectedAttemptResult.teacherOverallRemark ? (
-                      <p className="hint">Teacher Remark: {selectedAttemptResult.teacherOverallRemark}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {(selectedAttemptDetail.responses || []).map((r) => (
-                  <div key={r.question?.id} className="evaluation">
-                    <p className="prompt">{r.question?.prompt}</p>
-                    {r.question?.type === "mcq" ? (
-                      <p className="hint">
-                        Your Choice:{" "}
-                        {typeof r.mcqChoice === "number" && Array.isArray(r.question?.choices)
-                          ? r.question.choices[r.mcqChoice] || `Option ${r.mcqChoice + 1}`
-                          : "Not recorded"}
-                      </p>
-                    ) : (
-                      <p className="hint">Your Answer: {r.answer}</p>
-                    )}
-                    {r.percentage !== null ? <p>AI Score: {r.percentage}%</p> : <p className="hint">AI Score: Pending</p>}
-                    {r.marksAwarded !== null ? <p>AI Marks: {r.marksAwarded}</p> : <p className="hint">AI Marks: Pending</p>}
-                    {r.explanation ? (
-                      <details className="explain">
-                        <summary>AI Explanation</summary>
-                        <p className="hint">{String(r.explanation).slice(0, 900)}</p>
-                      </details>
-                    ) : null}
-                    {r.teacherMarksAwarded !== null ? <p>Teacher Marks: {r.teacherMarksAwarded}</p> : null}
-                    {r.teacherFeedback ? <p className="hint">Teacher Feedback: {r.teacherFeedback}</p> : null}
-                  </div>
-                ))}
-              </section>
-            ) : null}
-
-            {question ? (
-              <section className="card quiz-card">
-                <div className="question-head">
-                  <span>Test: {joinedTest?.title || "Evalo Test"}</span>
-                  <span className="pill">Q{question.number}/{question.total}</span>
-                  <span className="pill">{question.difficulty}</span>
-                  <span className="pill">{question.type === "mcq" ? "MCQ" : "Subjective"}</span>
-                  <span className="pill danger">Time Left: {formatTime(timeLeftSec)}</span>
-                  {marksInfo?.totalMarks ? (
-                    <span className="pill">Marks: {marksInfo.totalMarks}</span>
-                  ) : null}
-                </div>
-
-                <div className={`exam-stage ${fullscreenLocked ? "locked" : ""}`}>
-                  <div className="exam-content">
-                    <p className="prompt">{question.prompt}</p>
-
-                    <form className="form-grid" onSubmit={submitAnswer}>
-                      {question.type === "mcq" ? (
-                        <div className="mcq-box">
-                          <p className="hint">Select one option:</p>
-                          <div className="mcq-list">
-                            {(question.choices || []).map((c, idx) => (
-                              <label key={idx} className={`mcq-option ${mcqChoice === idx ? "active" : ""}`}>
-                                <input
-                                  type="radio"
-                                  name="mcq"
-                                  checked={mcqChoice === idx}
-                                  onChange={() => setMcqChoice(idx)}
-                                />
-                                <span>{c}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <label>
-                          Your Answer
-                          <textarea
-                            rows={8}
-                            minLength={10}
-                            required
-                            value={answer}
-                            onChange={(e) => setAnswer(e.target.value)}
-                            onCopy={(e) => {
-                              e.preventDefault();
-                              sendProctorEvent("copy_attempt", { source: "textarea" });
-                            }}
-                            onPaste={(e) => {
-                              e.preventDefault();
-                              sendProctorEvent("paste_attempt", { source: "textarea" });
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              sendProctorEvent("paste_attempt", { source: "drop" });
-                            }}
-                            onDragOver={(e) => e.preventDefault()}
-                            onBeforeInput={(e) => {
-                              const t = e?.nativeEvent?.inputType || "";
-                              if (t === "insertFromPaste" || t === "insertFromDrop") {
-                                e.preventDefault();
-                                sendProctorEvent("paste_attempt", { source: t });
-                              }
-                            }}
-                          />
-                        </label>
-                      )}
-                      <button type="submit" disabled={busy || fullscreenLocked}>
-                        {busy ? "Evaluating..." : "Submit Answer"}
-                      </button>
-                    </form>
-                  </div>
-
-                  {fullscreenLocked ? (
-                    <div className="fullscreen-overlay">
-                      <div className="fullscreen-card">
-                        <p className="fullscreen-title">Fullscreen Required</p>
-                        <p className="hint">Questions are blurred until fullscreen is active.</p>
-                        <button type="button" onClick={requestFullscreenNow}>
-                          Return to Fullscreen
+            {
+              isStudent && selectedAttemptDetail ? (
+                <section className="card result-display" style={{ marginTop: '2rem' }}>
+                  <div className="result-header">
+                    <h2>Attempt Review</h2>
+                    <div className="result-actions-bar">
+                      <div className={`result-remark-badge ${!selectedAttemptDetail.status?.teacherPublishedAt ? 'pending' : ''}`}>
+                        <span className="result-emoji">{!selectedAttemptDetail.status?.teacherPublishedAt ? "⏳" : "✅"}</span>
+                        <span className="result-label">
+                          {!selectedAttemptDetail.status?.teacherPublishedAt ? "Pending Teacher Review" : "Evaluation Finalized"}
+                        </span>
+                      </div>
+                      {!selectedAttemptDetail.status?.teacherPublishedAt && (
+                        <button className="btn-soft btn-small" onClick={refreshResultSync} disabled={busy}>
+                          {busy ? "🔄 Syncing..." : "🔄 Refresh Scores"}
                         </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedAttemptResult && (
+                    <div className="score-overview-grid">
+                      <div className={`score-card ${!selectedAttemptDetail.status?.teacherPublishedAt ? 'pending-card' : 'final'}`}>
+                        <div className="score-label-sub">Final Marks</div>
+                        <div className="score-circle-new">
+                          <div className="score-value-big">
+                            {selectedAttemptDetail.status?.teacherPublishedAt ? (selectedAttemptResult.marksObtained || 0) : ".."}
+                          </div>
+                          <div className="score-max-small">/ {selectedAttemptResult.totalMarks || 0}</div>
+                        </div>
+                        <div className="score-status-text" style={{ color: selectedAttemptDetail.status?.teacherPublishedAt ? '#10b981' : '#fbbf24' }}>
+                          {selectedAttemptDetail.status?.teacherPublishedAt ? "Validated" : "Under Review"}
+                        </div>
+                      </div>
+
+                      <div className="score-card ai-prediction">
+                        <div className="score-label-sub">AI Predicted Score</div>
+                        <div className="score-circle-new">
+                          <div className="score-value-big">
+                            {String((selectedAttemptDetail.responses || []).reduce((sum, r) => sum + (r.marksAwarded || 0), 0).toFixed(1))}
+                          </div>
+                          <div className="score-max-small">/ {selectedAttemptResult.totalMarks || 0}</div>
+                        </div>
+                        <div className="score-status-text" style={{ color: '#3b82f6' }}>
+                          Semantic Analysis
+                        </div>
                       </div>
                     </div>
+                  )}
+
+                  <div className="section-divider" style={{ margin: '3rem 0', height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+                  <h3 style={{ marginBottom: '2rem' }}>Question-wise Analysis</h3>
+
+                  {(selectedAttemptDetail.responses || []).map((r) => (
+                    <div key={r.question?.id} className="evaluation" style={{ position: 'relative' }}>
+                      {r.isAI && (
+                        <span className="pill success" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', padding: '2px 8px' }}>
+                          🤖 AI Evaluated
+                        </span>
+                      )}
+                      <p className="prompt">{r.question?.prompt}</p>
+                      {r.question?.type === "mcq" ? (
+                        <p className="hint">
+                          Your Choice:{" "}
+                          {typeof r.mcqChoice === "number" && Array.isArray(r.question?.choices)
+                            ? r.question.choices[r.mcqChoice] || `Option ${r.mcqChoice + 1}`
+                            : "Not recorded"}
+                        </p>
+                      ) : (
+                        <p className="hint">Your Answer: {r.answer}</p>
+                      )}
+
+                      <div className="row" style={{ gap: '1rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
+                        {r.percentage !== null ? (
+                          <span className="stat-pill">AI Score: {r.percentage}%</span>
+                        ) : (
+                          <span className="stat-pill hint">AI Score: Pending</span>
+                        )}
+                        {r.marksAwarded !== null && (
+                          <span className="stat-pill">Marks: {r.marksAwarded}</span>
+                        )}
+                        {r.teacherMarksAwarded !== null && (
+                          <span className="stat-pill success">Teacher Marks: {r.teacherMarksAwarded}</span>
+                        )}
+                      </div>
+
+                      {r.feedback && (
+                        <div className="ai-feedback-box">
+                          <p><strong>Feedback:</strong> {r.feedback}</p>
+                        </div>
+                      )}
+
+                      {r.aiReasoning && (
+                        <details className="explain" style={{ marginTop: '0.5rem' }}>
+                          <summary className="ai-reasoning-summary">
+                            <span>🧠 AI Reasoning</span>
+                            {r.aiConfidence && (
+                              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                                <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Confidence: {Math.round(r.aiConfidence * 100)}%</span>
+                                <div className="confidence-meter">
+                                  <div className="confidence-fill" style={{ width: `${r.aiConfidence * 100}%` }} />
+                                </div>
+                              </div>
+                            )}
+                          </summary>
+                          <p className="hint" style={{ marginTop: '0.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '1rem' }}>
+                            {r.aiReasoning}
+                          </p>
+                        </details>
+                      )}
+
+                      {!r.aiReasoning && r.explanation && (
+                        <details className="explain">
+                          <summary>Concept Reference</summary>
+                          <p className="hint">{String(r.explanation).slice(0, 900)}</p>
+                        </details>
+                      )}
+
+                      {r.teacherFeedback && (
+                        <div className="teacher-overall-feedback" style={{ marginTop: '1rem', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '0.5rem' }}>
+                          <p className="hint"><strong>Teacher Feedback:</strong> {r.teacherFeedback}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </section>
+              ) : null
+            }
+
+            {
+              question ? (
+                <section className="card quiz-card">
+                  <div className="question-head">
+                    <span>Test: {joinedTest?.title || "Evalo Test"}</span>
+                    <span className="pill">Q{question.number}/{question.total}</span>
+                    <span className="pill">{question.difficulty}</span>
+                    <span className="pill">{question.type === "mcq" ? "MCQ" : "Subjective"}</span>
+                    <span className={`pill ${timeLeftSec < 300 ? "danger" : ""}`}>
+                      ⏱️ {formatTime(timeLeftSec)}
+                      {timeLeftSec < 300 && timeLeftSec > 0 ? " ⚠️" : ""}
+                    </span>
+                    {marksInfo?.totalMarks ? (
+                      <span className="pill">Marks: {marksInfo.totalMarks}</span>
+                    ) : null}
+                    {autoSaveStatus && (
+                      <span className={`pill ${autoSaveStatus === "saved" ? "success" : autoSaveStatus === "error" ? "danger" : ""}`}>
+                        {autoSaveStatus === "saving" && "💾 Saving..."}
+                        {autoSaveStatus === "saved" && "✓ Saved"}
+                        {autoSaveStatus === "error" && "⚠️ Save failed"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={`exam-stage ${fullscreenLocked ? "locked" : ""}`}>
+                    <div className="exam-content">
+                      <p className="prompt">{question.prompt}</p>
+
+                      <form className="form-grid" onSubmit={submitAnswer}>
+                        {question.type === "mcq" ? (
+                          <div className="mcq-box">
+                            <p className="hint">Select one option:</p>
+                            <div className="mcq-list">
+                              {(question.choices || []).map((c, idx) => (
+                                <label key={idx} className={`mcq-option ${mcqChoice === idx ? "active" : ""}`}>
+                                  <input
+                                    type="radio"
+                                    name="mcq"
+                                    checked={mcqChoice === idx}
+                                    onChange={() => setMcqChoice(idx)}
+                                  />
+                                  <span>{c}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <label>
+                            Your Answer
+                            <textarea
+                              rows={10}
+                              minLength={10}
+                              required
+                              value={answer}
+                              onChange={(e) => setAnswer(e.target.value)}
+                              onCopy={(e) => {
+                                e.preventDefault();
+                                sendProctorEvent("copy_attempt", { source: "textarea" });
+                              }}
+                              onPaste={(e) => {
+                                e.preventDefault();
+                                sendProctorEvent("paste_attempt", { source: "textarea" });
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                sendProctorEvent("paste_attempt", { source: "drop" });
+                              }}
+                              onDragOver={(e) => e.preventDefault()}
+                              onBeforeInput={(e) => {
+                                const t = e?.nativeEvent?.inputType || "";
+                                if (t === "insertFromPaste" || t === "insertFromDrop") {
+                                  e.preventDefault();
+                                  sendProctorEvent("paste_attempt", { source: t });
+                                }
+                              }}
+                              placeholder="Type your detailed answer here..."
+                            />
+                            <div className="answer-stats">
+                              <span className="hint">Words: {wordCount} | Characters: {characterCount}</span>
+                              {lastSavedAt && (
+                                <span className="hint">Last saved: {lastSavedAt.toLocaleTimeString()}</span>
+                              )}
+                            </div>
+                          </label>
+                        )}
+                        <button type="submit" disabled={busy || fullscreenLocked}>
+                          {busy ? "Evaluating..." : "Submit Answer"}
+                        </button>
+                      </form>
+                    </div>
+
+                    {fullscreenLocked ? (
+                      <div className="fullscreen-overlay">
+                        <div className="fullscreen-card">
+                          <p className="fullscreen-title">Fullscreen Required</p>
+                          <p className="hint">Questions are blurred until fullscreen is active.</p>
+                          <button type="button" onClick={requestFullscreenNow}>
+                            Return to Fullscreen
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+              ) : null
+            }
+
+            {
+              lastEvaluation ? (
+                <section className="card evaluation">
+                  <h3>Latest Answer Evaluation</h3>
+                  <p>Correctness: {lastEvaluation.percentage}%</p>
+                  {typeof lastEvaluation.marksAwarded === "number" ? (
+                    <p>
+                      Marks: {lastEvaluation.marksAwarded} / {lastEvaluation.marksPerQuestion ?? "-"}
+                    </p>
                   ) : null}
-                </div>
-              </section>
-            ) : null}
+                  {typeof lastEvaluation.cheatingPenalty === "number" ? (
+                    <p>Cheating Penalty: {lastEvaluation.cheatingPenalty}%</p>
+                  ) : null}
+                  <p className="hint">{lastEvaluation.feedback}</p>
+                  {lastEvaluation.explanation ? (
+                    <details className="explain">
+                      <summary>AI Explanation</summary>
+                      <p className="hint">{String(lastEvaluation.explanation).slice(0, 900)}</p>
+                    </details>
+                  ) : null}
+                </section>
+              ) : null
+            }
 
-            {lastEvaluation ? (
-              <section className="card evaluation">
-                <h3>Latest Answer Evaluation</h3>
-                <p>Correctness: {lastEvaluation.percentage}%</p>
-                {typeof lastEvaluation.marksAwarded === "number" ? (
-                  <p>
-                    Marks: {lastEvaluation.marksAwarded} / {lastEvaluation.marksPerQuestion ?? "-"}
-                  </p>
-                ) : null}
-                {typeof lastEvaluation.cheatingPenalty === "number" ? (
-                  <p>Cheating Penalty: {lastEvaluation.cheatingPenalty}%</p>
-                ) : null}
-                <p className="hint">{lastEvaluation.feedback}</p>
-                {lastEvaluation.explanation ? (
-                  <details className="explain">
-                    <summary>AI Explanation</summary>
-                    <p className="hint">{String(lastEvaluation.explanation).slice(0, 900)}</p>
-                  </details>
-                ) : null}
-              </section>
-            ) : null}
+            {
+              result ? (
+                <section className="card result-display">
+                  <div className="result-header">
+                    <h2>🎉 Test Completed!</h2>
+                    <div className="result-actions-bar">
+                      <div className={`result-remark-badge ${!result.teacherPublishedAt ? 'pending' : ''}`}>
+                        <span className="result-emoji">{!result.teacherPublishedAt ? "⏳" : (result.remark?.emoji || "✅")}</span>
+                        <span className="result-label">
+                          {!result.teacherPublishedAt ? "Pending for Teacher Review" : (result.remark?.label || "Test Evaluated")}
+                        </span>
+                      </div>
+                      {!result.teacherPublishedAt && (
+                        <button className="btn-soft btn-small" onClick={refreshResultSync} disabled={busy}>
+                          {busy ? "🔄 Syncing..." : "🔄 Refresh Scores"}
+                        </button>
+                      )}
+                      {result.teacherPublishedAt && (
+                        <button
+                          className="btn-soft btn-small"
+                          onClick={() => generateStudentReportPDF(result, joinedTest || { title: result.testTitle, totalMarks: result.totalMarks })}
+                          title="Download Results as PDF"
+                        >
+                          📄 Download PDF
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-            {result ? (
-              <section className="card evaluation">
-                <h2>Test Completed</h2>
-                {result.remark?.label ? (
-                  <p className="result-remark">
-                    <span className="result-emoji" aria-hidden>{result.remark.emoji || ""}</span>
-                    <span>{result.remark.label}</span>
-                  </p>
-                ) : null}
-                <p>Average Score: {result.averagePercentage}%</p>
-                {typeof result.marksObtained === "number" ? (
-                  <p>
-                    Total Marks: {result.marksObtained} / {result.totalMarks}
-                  </p>
-                ) : null}
-                {result.teacherOverallRemark ? <p className="hint">Teacher Remark: {result.teacherOverallRemark}</p> : null}
-                <p>
-                  Level Progression: {result.levelProgression.started} → {result.levelProgression.ended}
-                </p>
-                <p>
-                  Proctor Risk: {result.proctoring?.riskScore ?? 0}% | Warnings: {result.proctoring?.warningCount ?? 0}
-                </p>
-                <p className="hint">
-                  Beginner: {result.difficultyBreakdown.beginner ?? "-"} | Intermediate: {result.difficultyBreakdown.intermediate ?? "-"} | Advanced: {result.difficultyBreakdown.advanced ?? "-"}
-                </p>
-              </section>
-            ) : null}
+                  <div className="score-overview-grid">
+                    <div className={`score-card ${!result.teacherPublishedAt ? 'pending-card' : 'final'}`}>
+                      <div className="score-label-sub">Final Marks</div>
+                      <div className="score-circle-new">
+                        <div className="score-value-big">
+                          {result.teacherPublishedAt ? (result.marksObtained || 0) : ".."}
+                        </div>
+                        <div className="score-max-small">/ {result.totalMarks || 0}</div>
+                      </div>
+                      <div className="score-status-text" style={{ color: result.teacherPublishedAt ? '#10b981' : '#fbbf24' }}>
+                        {result.teacherPublishedAt ? "Validated" : "Under Review"}
+                      </div>
+                    </div>
+
+                    <div className="score-card ai-prediction">
+                      <div className="score-label-sub">AI Predicted Score</div>
+                      <div className="score-circle-new">
+                        <div className="score-value-big">
+                          {String((result.responses || []).reduce((sum, r) => sum + (r.marksAwarded || 0), 0).toFixed(1))}
+                        </div>
+                        <div className="score-max-small">/ {result.totalMarks || 0}</div>
+                      </div>
+                      <div className="score-status-text" style={{ color: '#3b82f6' }}>
+                        Semantic Analysis
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="performance-stats" style={{ marginTop: '2rem' }}>
+                    <div className="stat-card">
+                      <div className="stat-icon">📊</div>
+                      <div className="stat-content">
+                        <div className="stat-label">Level Progression</div>
+                        <div className="stat-value">
+                          {result.levelProgression?.started || "N/A"} → {result.levelProgression?.ended || "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                    {/* ... stats ... */}
+                    <div className="stat-card">
+                      <div className="stat-icon">🎯</div>
+                      <div className="stat-content">
+                        <div className="stat-label">Difficulty Breakdown</div>
+                        <div className="stat-value stat-breakdown">
+                          <span>Beg: {result.difficultyBreakdown?.beginner ?? 0}</span>
+                          <span>Int: {result.difficultyBreakdown?.intermediate ?? 0}</span>
+                          <span>Adv: {result.difficultyBreakdown?.advanced ?? 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon">🔒</div>
+                      <div className="stat-content">
+                        <div className="stat-label">Proctoring</div>
+                        <div className="stat-value">
+                          Risk: {result.proctoring?.riskScore ?? 0}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {result.teacherOverallRemark && (
+                    <div className="teacher-overall-feedback" style={{ marginTop: '2.5rem', padding: '2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <h3 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>💬 Teacher's Comments</h3>
+                      <p className="feedback-text" style={{ color: '#e2e8f0', lineHeight: '1.6', fontSize: '1.05rem' }}>{result.teacherOverallRemark}</p>
+                    </div>
+                  )}
+                </section>
+              ) : null
+            }
           </>
         )
         }

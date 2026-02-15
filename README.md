@@ -29,7 +29,6 @@ This project is structured exactly in two folders:
 
 ### Teacher Management Tools
 - **Clear History**: Teachers can now clear all student attempt history for a specific test with one click (includes safety confirmation).
-- **Recent Sessions**: The "Uploaded Book Sessions" list is now limited to the **Top 3 most recent** uploads for a cleaner workspace.
 - **Finalized Hide**: Attempts published 3 times (Finalized) are automatically hidden from the active review list.
 
 ### Submission Workflow
