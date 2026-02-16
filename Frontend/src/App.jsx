@@ -275,16 +275,30 @@ function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm,
             onSubmit();
           }}
         >
-          {mode === "signup" ? (
-            <label>
-              Full Name
-              <input
-                value={form.name}
-                onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
-                required
-              />
-            </label>
-          ) : null}
+          {mode === "signup" && (
+            <>
+              <label>
+                Full Name
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                I am a:
+                <select
+                  className="input-select"
+                  value={form.role}
+                  onChange={(e) => setForm((v) => ({ ...v, role: e.target.value }))}
+                  required
+                >
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher / Professor</option>
+                </select>
+              </label>
+            </>
+          )}
           <label>
             Email
             <input
@@ -317,6 +331,113 @@ function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm,
           </button>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function AddUserModal({ open, onClose, onSubmit, busy, form, setForm, error }) {
+  if (!open) return null;
+  return (
+    <div className="modal-overlay">
+      <motion.div
+        className="modal-glass"
+        initial={{ opacity: 0, scale: 0.95, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+      >
+        <div className="modal-header-with-logo">
+          <img src="/evalo-logo.png" alt="Evalo Logo" className="modal-logo" />
+          <h3>Add New User (Admin)</h3>
+        </div>
+        {error ? <p className="error">{error}</p> : null}
+
+        <form
+          className="form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          <label>
+            Full Name
+            <input
+              value={form.name}
+              onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+              required
+              placeholder="e.g. John Doe"
+            />
+          </label>
+          <label>
+            Role
+            <select
+              className="input-select"
+              value={form.role}
+              onChange={(e) => setForm((v) => ({ ...v, role: e.target.value }))}
+              required
+            >
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((v) => ({ ...v, email: e.target.value }))}
+              required
+              placeholder="user@evalo.ai"
+            />
+          </label>
+          <label>
+            Temp Password
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((v) => ({ ...v, password: e.target.value }))}
+              required
+              placeholder="Min 6 characters"
+            />
+          </label>
+          <div className="row gap-top modal-footer-spaced">
+            <button type="button" className="btn-soft" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" disabled={busy}>
+              {busy ? "Creating..." : "Create User"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+function PendingApprovalView({ user, onRefresh, busy }) {
+  return (
+    <div className="card big-card centered-text" style={{ padding: '4rem 2rem' }}>
+      <img src="/evalo-logo.png" alt="Evalo" style={{ width: '80px', marginBottom: '2rem' }} />
+      <div className="gap-top">
+        <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800 }}>Welcome to Evalo, {user.name}!</h2>
+        <div className="pill warning" style={{ fontSize: '1.2rem', padding: '0.8rem 1.5rem', display: 'inline-block' }}>
+          🔒 Your Account is Pending Approval
+        </div>
+        <p className="subtitle gap-top" style={{ maxWidth: '600px', margin: '2rem auto', fontSize: '1.1rem', color: '#def0ff' }}>
+          Our administrators are currently reviewing your request for a <strong>{user.role}</strong> account.
+          You will gain full access to Evalo's features once your profile is verified.
+          Please check back shortly!
+        </p>
+        <div className="row gap-top" style={{ justifyContent: 'center' }}>
+          <button className="cta-button" onClick={onRefresh} disabled={busy}>
+            {busy ? "Checking..." : "Check Approval Status"}
+          </button>
+        </div>
+        <div className="row gap-top" style={{ justifyContent: 'center', gap: '1rem', opacity: 0.5 }}>
+          <div className="feature-tag">Proctored Exams</div>
+          <div className="feature-tag">AI Analysis</div>
+          <div className="feature-tag">Real-time Analytics</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -469,13 +590,16 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
   const [authError, setAuthError] = useState("");
-  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
+  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "", role: "student" });
 
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminCanEditRoles, setAdminCanEditRoles] = useState(false);
   const [adminTests, setAdminTests] = useState([]);
   const [adminTestsBusy, setAdminTestsBusy] = useState(false);
+  const [addUserOpen, setAddUserOpen] = useState(false);
+  const [addUserForm, setAddUserForm] = useState({ name: "", email: "", password: "", role: "student" });
+  const [addUserError, setAddUserError] = useState("");
 
   const [teacherBooks, setTeacherBooks] = useState([]);
   const [bookFiles, setBookFiles] = useState([]);
@@ -675,7 +799,7 @@ export default function App() {
       const payload =
         authMode === "login"
           ? { email: authForm.email, password: authForm.password }
-          : { name: authForm.name, email: authForm.email, password: authForm.password };
+          : { name: authForm.name, email: authForm.email, password: authForm.password, role: authForm.role };
 
       const { data } = await axios.post(`${API_BASE}${endpoint}`, payload);
       localStorage.setItem(TOKEN_KEY, data.token);
@@ -683,7 +807,7 @@ export default function App() {
       setUser(data.user);
       setAuthOpen(false);
       setAuthError("");
-      setAuthForm({ name: "", email: "", password: "" });
+      setAuthForm({ name: "", email: "", password: "", role: "student" });
       await loadRoleData(data.user, data.token);
       pushToast(authMode === "login" ? "Login successful." : "Account created successfully.", "success");
     } catch (err) {
@@ -1000,9 +1124,73 @@ export default function App() {
     try {
       await axios.patch(`${API_BASE}/admin/users/${userId}/role`, { role }, authConfig(token));
       await refreshAdminUsers();
-      pushToast("Role updated.", "success");
+      pushToast("User role updated.", "success");
     } catch (err) {
-      setError(appError(err, "Unable to update role."));
+      pushToast(appError(err, "Failed to update role."), "error");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function addUser() {
+    if (!isAdmin) return;
+    setAdminBusy(true);
+    setAddUserError("");
+    try {
+      await axios.post(`${API_BASE}/admin/users/add`, addUserForm, authConfig(token));
+      pushToast("User added successfully.", "success");
+      setAddUserOpen(false);
+      setAddUserForm({ name: "", email: "", password: "", role: "student" });
+      await refreshAdminUsers();
+    } catch (err) {
+      setAddUserError(appError(err, "Failed to add user."));
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function deleteUser(userId) {
+    if (!isAdmin) return;
+    if (!window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+    setAdminBusy(true);
+    try {
+      await axios.delete(`${API_BASE}/admin/users/${userId}`, authConfig(token));
+      pushToast("User deleted successfully.", "success");
+      await refreshAdminUsers();
+    } catch (err) {
+      pushToast(appError(err, "Failed to delete user."), "error");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function refreshMyProfile() {
+    if (!token) return;
+    setBusy(true);
+    try {
+      const { data } = await axios.get(`${API_BASE}/auth/me`, authConfig(token));
+      setUser(data.user);
+      if (data.user.isApproved) {
+        pushToast("Welcome! Your account is approved.", "success");
+      } else {
+        pushToast("Status checked: Still pending.", "info");
+      }
+    } catch (err) {
+      pushToast(appError(err, "Failed to refresh profile."), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approveUser(userId, isApproved) {
+    if (!token || !isAdmin) return;
+    setAdminBusy(true);
+    try {
+      await axios.patch(`${API_BASE}/admin/users/${userId}/approve`, { isApproved }, authConfig(token));
+      await refreshAdminUsers();
+      pushToast(isApproved ? "User approved." : "Approval revoked.", "success");
+    } catch (err) {
+      setError(appError(err, "Approval update failed."));
     } finally {
       setAdminBusy(false);
     }
@@ -1636,1522 +1824,1570 @@ export default function App() {
         {error ? <p className="error wide">{error}</p> : null}
         {proctorAlert ? <p className="warning wide">{proctorAlert}</p> : null}
 
-        {activePage === "admin" ? (
-          <section className="card big-card">
-            <h2>Admin Control Center</h2>
-            <p className="subtitle">
-              {isAdmin
-                ? "Assign user roles between Student, Teacher, and Admin."
-                : "Teacher read-only view. Only admin can change roles."}
-            </p>
-            {!isTeacher ? (
-              <p className="error">Admin page is available only for teacher/admin.</p>
-            ) : (
-              <>
-                <div className="row">
-                  <button onClick={refreshAdminUsers} disabled={adminBusy}>
-                    {adminBusy ? "Refreshing..." : "Refresh Users"}
-                  </button>
-                  {isAdmin ? (
-                    <button className="btn-soft btn-small" onClick={refreshAdminTests} disabled={adminTestsBusy}>
-                      {adminTestsBusy ? "Loading..." : "Refresh Tests"}
-                    </button>
-                  ) : null}
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminUsers.map((u) => (
-                        <tr key={u.id}>
-                          <td>{u.name}</td>
-                          <td>{u.email}</td>
-                          <td>{u.role}</td>
-                          <td>
-                            {adminCanEditRoles ? (
-                              <select
-                                value={u.role}
-                                onChange={(e) => updateUserRole(u.id, e.target.value)}
-                                disabled={adminBusy || u.id === user?.id}
-                                title={u.id === user?.id ? "You cannot change your own role." : ""}
-                              >
-                                <option value="student">student</option>
-                                <option value="teacher">teacher</option>
-                                <option value="admin">admin</option>
-                              </select>
-                            ) : (
-                              <span className="pill">Read only</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {isAdmin ? (
-                  <>
-                    <div className="evaluation gap-top">
-                      <div className="list-header">
-                        <h3>More Admin Functions</h3>
-                        <span className="pill success">System Control</span>
-                      </div>
-                      <p className="hint">Utility functions for platform maintenance and auditing.</p>
-                      <div className="row gap-top">
-                        <button className="btn-soft btn-small" onClick={() => pushToast("Audit Log fetched (Demo)", "info")}>
-                          View Audit Logs
-                        </button>
-                        <button className="btn-soft btn-small" onClick={() => pushToast("Cache cleared (Demo)", "info")}>
-                          Clear System Cache
-                        </button>
-                        <button className="btn-soft btn-small" onClick={() => pushToast("Storage optimized (Demo)", "info")}>
-                          Optimize Storage
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="evaluation gap-top">
-                      <div className="list-header">
-                        <h3>Global Exam Settings</h3>
-                        <span className="pill success">System-wide</span>
-                      </div>
-                      <p className="hint">Control shared behaviors across all student tests platform-wide.</p>
-                      <div className="row gap-top" style={{ alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ flex: 1 }}>
-                          <strong style={{ display: 'block', marginBottom: '4px' }}>Allow Copy-Paste in Tests</strong>
-                          <p className="hint" style={{ margin: 0, fontSize: '0.85rem' }}>
-                            {globalSettings.allowCopyPaste
-                              ? "Students can currently paste text into answer boxes."
-                              : "Pasting is strictly blocked. Enabling this requires admin password verification."}
-                          </p>
-                        </div>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={globalSettings.allowCopyPaste}
-                            onChange={(e) => updateGlobalSettings(e.target.checked)}
-                            disabled={settingsBusy}
-                          />
-                          <span className="slider round"></span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="evaluation gap-top">
-                      <div className="list-header">
-                        <h3>Platform Reset</h3>
-                        <span className="pill danger">High Risk</span>
-                      </div>
-                      <p className="hint">Start from 0 by wiping tests, books, attempts, and history.</p>
-                      <div className="row gap-top">
-                        <button className="btn-soft btn-small" onClick={() => adminReset("data")} disabled={adminTestsBusy}>
-                          Reset Data (Keep Users)
-                        </button>
-                        <button className="btn-soft btn-small" onClick={() => adminReset("all")} disabled={adminTestsBusy}>
-                          Reset All (Wipe Users)
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="evaluation gap-top">
-                      <div className="list-header">
-                        <h3>All Tests</h3>
-                        <span className="pill">Count: {adminTests.length}</span>
-                      </div>
-                      {adminTests.length ? (
-                        <ul className="flat-list">
-                          {adminTests.map((t) => (
-                            <li key={t.id} className="list-row">
-                              <div className="list-main">
-                                <div className="list-title">{t.title}</div>
-                                <div className="pill-wrap">
-                                  <span className="pill">Code: {t.joinCode}</span>
-                                  {t.totalMarks ? <span className="pill">Marks: {t.totalMarks}</span> : null}
-                                  {t.startsAt ? <span className="pill">Starts: {formatShortDateTime(t.startsAt)}</span> : null}
-                                  <span className="pill">Attempts: {t.attempts ?? 0}</span>
-                                </div>
-                              </div>
-                              <div className="list-actions">
-                                <button
-                                  className="btn-soft btn-small"
-                                  onClick={() => {
-                                    if (confirm(`Clear all attempt history for "${t.title}"? This cannot be undone.`)) {
-                                      // TODO: Implement clear history endpoint
-                                      alert("Clear history feature coming soon!");
-                                    }
-                                  }}
-                                  disabled={adminTestsBusy}
-                                >
-                                  Clear History
-                                </button>
-                                <button className="btn-soft btn-small" onClick={() => adminDeleteTest(t.id)} disabled={adminTestsBusy}>
-                                  Delete
-                                </button>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="hint">No tests found. Click Refresh Tests.</p>
-                      )}
-                    </div>
-                  </>
-                ) : null}
-              </>
-            )}
-          </section>
+        {user && !user.isApproved && user.role !== 'admin' && activePage === "home" ? (
+          <PendingApprovalView user={user} onRefresh={refreshMyProfile} busy={busy} />
         ) : (
           <>
-            {/* Floating Gradient Orbs */}
-            <div className="floating-orbs">
-              <div className="floating-orb orb-1"></div>
-              <div className="floating-orb orb-2"></div>
-              <div className="floating-orb orb-3"></div>
-            </div>
-
-            {/* Centered Hero Section */}
-            <motion.section
-              className="hero-centered"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-            >
-              <div className="hero-title-container">
-                <motion.img
-                  src="/evalo-logo.png"
-                  alt="Evalo Logo"
-                  className="hero-logo"
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                />
-                <h1 className="gradient-text hero-title">Evalo Smart Examination Platform</h1>
-              </div>
-              <p className="hero-subtitle-centered">
-                Next-generation exam orchestration powered by AI
-              </p>
-
-              <div className="pill-wrap-centered">
-                <span
-                  className="pill-enhanced pill-clickable"
-                  onClick={() => {
-                    if (!user) {
-                      setAuthOpen(true);
-                      setError("Please login to access proctoring features");
-                    } else {
-                      const section = document.getElementById('features-section');
-                      section?.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                >
-                  <span className="pill-icon">📹</span>
-                  Camera + Mic Proctoring
-                </span>
-                <span
-                  className="pill-enhanced pill-clickable"
-                  onClick={() => {
-                    if (!user) {
-                      setAuthOpen(true);
-                      setError("Please login to access fullscreen enforcement");
-                    } else {
-                      const section = document.getElementById('features-section');
-                      section?.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                >
-                  <span className="pill-icon">🖥️</span>
-                  Auto Fullscreen Enforcement
-                </span>
-                <span
-                  className="pill-enhanced pill-clickable"
-                  onClick={() => {
-                    if (!user) {
-                      setAuthOpen(true);
-                      setError("Please login to access AI-powered evaluation");
-                    } else {
-                      const section = document.getElementById('features-section');
-                      section?.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                >
-                  <span className="pill-icon">🤖</span>
-                  AI-Powered Evaluation
-                </span>
-                <span
-                  className="pill-enhanced pill-clickable"
-                  onClick={() => {
-                    if (!user) {
-                      setAuthOpen(true);
-                      setError("Please login to access real-time analytics");
-                    } else {
-                      const section = document.getElementById('features-section');
-                      section?.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                >
-                  <span className="pill-icon">⚡</span>
-                  Real-time Analytics
-                </span>
-              </div>
-
-              <div className="cta-group-centered">
-                <button
-                  className="cta-button glow-effect"
-                  onClick={() => {
-                    const features = document.getElementById('features-section');
-                    features?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <span>Get Started Free</span>
-                </button>
-                <button
-                  className="cta-button cta-secondary"
-                  onClick={() => {
-                    const features = document.getElementById('features-section');
-                    features?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <span>Explore Features</span>
-                </button>
-              </div>
-            </motion.section>
-
-            {/* Centered Stats Section */}
-            <motion.section
-              className="stats-grid-centered"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-            >
-              <div className="stat-card-large">
-                <p className="stat-number-large">AI-Powered</p>
-                <p className="stat-label-large">Adaptive Learning</p>
-              </div>
-              <div className="stat-card-large">
-                <p className="stat-number-large">Real-time</p>
-                <p className="stat-label-large">Proctoring System</p>
-              </div>
-              <div className="stat-card-large">
-                <p className="stat-number-large">Secure</p>
-                <p className="stat-label-large">Exam Environment</p>
-              </div>
-              <div className="stat-card-large">
-                <p className="stat-number-large">Smart</p>
-                <p className="stat-label-large">Auto Grading</p>
-              </div>
-            </motion.section>
-
-            {/* Feature Cards Section */}
-            <motion.section
-              id="features-section"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-            >
-              <h2 style={{ textAlign: 'center', marginTop: '3rem', marginBottom: '1rem', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: '#f1fbff' }}>
-                Platform Capabilities
-              </h2>
-              <div className="feature-cards-grid">
-                <motion.div
-                  className="feature-card"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                >
-                  <div className="feature-icon">🎯</div>
-                  <h3>Adaptive Assessment</h3>
-                  <p>
-                    AI-driven subjective question evaluation that adapts to student responses.
-                    Generate personalized tests from uploaded materials with intelligent difficulty scaling.
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  className="feature-card"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7, duration: 0.5 }}
-                >
-                  <div className="feature-icon">🔒</div>
-                  <h3>Advanced Proctoring</h3>
-                  <p>
-                    Multi-layered security with camera monitoring, fullscreen enforcement,
-                    copy-paste detection, and real-time risk scoring to ensure exam integrity.
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  className="feature-card"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.8, duration: 0.5 }}
-                >
-                  <div className="feature-icon">📊</div>
-                  <h3>Intelligent Analytics</h3>
-                  <p>
-                    Comprehensive performance tracking with detailed feedback, teacher review capabilities,
-                    and automated grading powered by advanced AI models.
-                  </p>
-                </motion.div>
-              </div>
-            </motion.section>
-
-
-            {user?.role === "teacher" ? (
-              <section className="card split-card">
-                <div>
-                  <h2>Teacher Panel</h2>
-                  <form className="form-grid" onSubmit={uploadBooks}>
-                    <label>
-                      Upload one or more books (PDF/TXT)
-                      <input
-                        type="file"
-                        multiple
-                        accept=".pdf,.txt"
-                        onChange={(e) => setBookFiles(e.target.files || [])}
-                      />
-                    </label>
-                    <button type="submit" disabled={busy}>
-                      {busy ? "Uploading..." : "Upload & Index"}
-                    </button>
-                  </form>
-
-                  {uploadStats ? (
-                    <div className="evaluation">
-                      <p>Book Session: {bookSessionId}</p>
-                      <p>{uploadStats.chunks} chunks | {uploadStats.questions} generated questions</p>
-                    </div>
-                  ) : null}
-
-                  <div className="form-grid gap-top">
-                    <label>
-                      Test Title
-                      <input
-                        value={createTestForm.title}
-                        onChange={(e) => setCreateTestForm((p) => ({ ...p, title: e.target.value }))}
-                      />
-                    </label>
-                    <label>
-                      Total Marks
-                      <input
-                        type="number"
-                        min="10"
-                        max="1000"
-                        step="1"
-                        value={createTestForm.totalMarks}
-                        inputMode="numeric"
-                        onChange={(e) => {
-                          const raw = digitsOnly(e.target.value);
-                          setCreateTestForm((p) => ({ ...p, totalMarks: raw ? Number(raw) : 0 }));
-                        }}
-                        onBlur={(e) => {
-                          const normalized = normalizeIntString(e.target.value, 10, 1000, 100);
-                          setCreateTestForm((p) => ({ ...p, totalMarks: Number(normalized) }));
-                        }}
-                      />
-                    </label>
-                    <label>
-                      Duration (minutes)
-                      <input
-                        type="number"
-                        min="5"
-                        max="180"
-                        step="1"
-                        value={createTestForm.durationMinutes}
-                        inputMode="numeric"
-                        onChange={(e) => {
-                          const raw = digitsOnly(e.target.value);
-                          setCreateTestForm((p) => ({ ...p, durationMinutes: raw ? Number(raw) : 0 }));
-                        }}
-                        onBlur={(e) => {
-                          const normalized = normalizeIntString(e.target.value, 5, 180, 35);
-                          setCreateTestForm((p) => ({ ...p, durationMinutes: Number(normalized) }));
-                        }}
-                      />
-                    </label>
-                    <label>
-                      Questions
-                      <input
-                        type="number"
-                        min="4"
-                        max="20"
-                        step="1"
-                        value={createTestForm.questionCount}
-                        inputMode="numeric"
-                        onChange={(e) => {
-                          const raw = digitsOnly(e.target.value);
-                          setCreateTestForm((p) => ({ ...p, questionCount: raw ? Number(raw) : 0 }));
-                        }}
-                        onBlur={(e) => {
-                          const normalized = normalizeIntString(e.target.value, 4, 20, 6);
-                          setCreateTestForm((p) => ({ ...p, questionCount: Number(normalized) }));
-                        }}
-                      />
-                    </label>
-                    <label>
-                      Topic (optional)
-                      <input
-                        value={createTestForm.topic}
-                        onChange={(e) => setCreateTestForm((p) => ({ ...p, topic: e.target.value }))}
-                        placeholder="e.g. Graphs, DP, Trees"
-                      />
-                    </label>
-                    <label>
-                      Start Date *
-                      <input
-                        type="date"
-                        value={createTestForm.startsAt ? createTestForm.startsAt.split('T')[0] : ''}
-                        onChange={(e) => {
-                          const currentTime = createTestForm.startsAt ? createTestForm.startsAt.split('T')[1] || '09:00' : '09:00';
-                          setCreateTestForm((p) => ({ ...p, startsAt: e.target.value ? `${e.target.value}T${currentTime}` : '' }));
-                        }}
-                        required
-                      />
-                    </label>
-                    <label>
-                      Start Time *
-                      <input
-                        type="time"
-                        value={createTestForm.startsAt ? createTestForm.startsAt.split('T')[1] || '' : ''}
-                        onChange={(e) => {
-                          const currentDate = createTestForm.startsAt ? createTestForm.startsAt.split('T')[0] : new Date().toISOString().split('T')[0];
-                          setCreateTestForm((p) => ({ ...p, startsAt: e.target.value ? `${currentDate}T${e.target.value}` : '' }));
-                        }}
-                        required
-                      />
-                    </label>
-                    <label>
-                      Difficulty
-                      <select
-                        value={createTestForm.difficulty}
-                        onChange={(e) => setCreateTestForm((p) => ({ ...p, difficulty: e.target.value }))}
-                      >
-                        <option value="easy">Easy</option>
-                        <option value="medium">Medium</option>
-                        <option value="hard">Hard</option>
-                      </select>
-                    </label>
-                    <label>
-                      Question Type
-                      <select
-                        value={createTestForm.questionFormat}
-                        onChange={(e) => {
-                          const format = e.target.value;
-                          setCreateTestForm((p) => {
-                            // If switching to mixed, set default split
-                            if (format === "mixed") {
-                              const half = Math.floor(p.questionCount / 2);
-                              return {
-                                ...p,
-                                questionFormat: format,
-                                mcqCount: half,
-                                subjectiveCount: p.questionCount - half
-                              };
-                            }
-                            return { ...p, questionFormat: format, mcqCount: 0, subjectiveCount: 0 };
-                          });
-                        }}
-                      >
-                        <option value="subjective">Subjective</option>
-                        <option value="mcq">MCQ</option>
-                        <option value="mixed">Mixed</option>
-                      </select>
-                    </label>
-
-                    {createTestForm.questionFormat === "mixed" && (
-                      <>
-                        <label>
-                          MCQ Questions *
-                          <input
-                            type="number"
-                            min="1"
-                            max={createTestForm.questionCount - 1}
-                            value={createTestForm.mcqCount}
-                            onChange={(e) => {
-                              const mcq = parseInt(e.target.value) || 0;
-                              setCreateTestForm((p) => ({
-                                ...p,
-                                mcqCount: mcq,
-                                subjectiveCount: p.questionCount - mcq
-                              }));
-                            }}
-                            required
-                          />
-                        </label>
-                        <label>
-                          Subjective Questions *
-                          <input
-                            type="number"
-                            min="1"
-                            max={createTestForm.questionCount - 1}
-                            value={createTestForm.subjectiveCount}
-                            onChange={(e) => {
-                              const subj = parseInt(e.target.value) || 0;
-                              setCreateTestForm((p) => ({
-                                ...p,
-                                subjectiveCount: subj,
-                                mcqCount: p.questionCount - subj
-                              }));
-                            }}
-                            required
-                          />
-                        </label>
-                        <p className="hint" style={{ marginTop: '-10px', fontSize: '0.85em', color: createTestForm.mcqCount + createTestForm.subjectiveCount === createTestForm.questionCount ? '#63f2de' : '#ff6b6b' }}>
-                          {createTestForm.mcqCount} MCQ + {createTestForm.subjectiveCount} Subjective = {createTestForm.mcqCount + createTestForm.subjectiveCount} / {createTestForm.questionCount} total
-                          {createTestForm.mcqCount + createTestForm.subjectiveCount !== createTestForm.questionCount && " ⚠️ Must equal total!"}
-                        </p>
-                      </>
-                    )}
-                    <div className="row">
-                      <button type="button" onClick={createTest} disabled={busy}>
-                        {busy ? "Saving..." : editingTestId ? "Save Changes" : "Create / Schedule Test"}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-soft btn-small"
-                        onClick={clearDraft}
-                        disabled={busy}
-                        title="Clear draft and reset form"
-                      >
-                        🗑️ Clear Draft
-                      </button>
-                      {editingTestId ? (
-                        <button
-                          type="button"
-                          className="btn-soft btn-small"
-                          onClick={() => {
-                            setEditingTestId("");
-                            setCreateTestForm((p) => ({ ...p, title: "", topic: "", startsAt: "" }));
-                          }}
-                          disabled={busy}
-                        >
-                          Cancel Edit
+            {activePage === "admin" ? (
+              <section className="card big-card">
+                <h2>Admin Control Center</h2>
+                <p className="subtitle">
+                  {isAdmin
+                    ? "Assign user roles between Student, Teacher, and Admin."
+                    : "Teacher read-only view. Only admin can change roles."}
+                </p>
+                {!isTeacher ? (
+                  <p className="error">Admin page is available only for teacher/admin.</p>
+                ) : (
+                  <>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <div className="row">
+                        <button onClick={refreshAdminUsers} disabled={adminBusy}>
+                          {adminBusy ? "Refreshing..." : "Refresh Users"}
                         </button>
-                      ) : null}
+                        {isAdmin ? (
+                          <button className="btn-soft btn-small" onClick={refreshAdminTests} disabled={adminTestsBusy}>
+                            {adminTestsBusy ? "Loading..." : "Refresh Tests"}
+                          </button>
+                        ) : null}
+                      </div>
+                      {isAdmin && (
+                        <button className="btn-success" onClick={() => setAddUserOpen(true)}>
+                          + Add User
+                        </button>
+                      )}
                     </div>
-                  </div>
-
-                  {createdTest ? (
-                    <div className="evaluation">
-                      <h3>Latest Test Created</h3>
-                      <p>{createdTest.title}</p>
-                      <p className="big-code">Join Code: {createdTest.joinCode}</p>
-                      {createdTest.topic ? <p className="hint">Topic: {createdTest.topic}</p> : null}
-                      {createdTest.difficulty ? <p className="hint">Difficulty: {createdTest.difficulty}</p> : null}
-                      {createdTest.questionFormat ? <p className="hint">Type: {createdTest.questionFormat}</p> : null}
-                      {createdTest.totalMarks ? (
-                        <p className="hint">
-                          Total Marks: {createdTest.totalMarks} | Marks/Q: {createdTest.marksPerQuestion}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div>
-                  <h2>Teacher Assets</h2>
-
-                  <div className="evaluation">
-                    <h3>My Tests</h3>
-                    {teacherTests.length ? (
-                      <div className="test-grid">
-                        {teacherTests.map((test) => (
-                          <div key={test.id} className="test-card">
-                            {/* Card Header */}
-                            <div className="test-card-header">
-                              <h4 className="test-card-title">{test.title}</h4>
-                              <div className="test-card-code">
-                                {test.joinCode}
-                              </div>
-                            </div>
-
-                            {/* Card Body - Metadata */}
-                            <div className="test-card-body">
-                              {/* Question Format */}
-                              <div className="test-meta-row">
-                                <span className="test-meta-label">📝 Format:</span>
-                                {test.questionFormat === "mixed" && test.mcqCount && test.subjectiveCount ? (
-                                  <span className="format-badge mixed">
-                                    {test.mcqCount} MCQ + {test.subjectiveCount} Subjective
-                                  </span>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adminUsers.map((u) => (
+                            <tr key={u.id}>
+                              <td>{u.name}</td>
+                              <td>{u.email}</td>
+                              <td>{u.role}</td>
+                              <td>
+                                <span className={`pill ${(u.isApproved || u.role === 'admin') ? 'success' : 'warning'}`}>
+                                  {(u.isApproved || u.role === 'admin') ? 'Approved' : 'Pending'}
+                                </span>
+                              </td>
+                              <td className="row" style={{ gap: '8px' }}>
+                                {adminCanEditRoles ? (
+                                  <>
+                                    <select
+                                      value={u.role}
+                                      onChange={(e) => updateUserRole(u.id, e.target.value)}
+                                      disabled={adminBusy || u.id === user?.id || u.role === 'admin'}
+                                      title={u.role === 'admin' ? "Admins are protected." : ""}
+                                    >
+                                      <option value="student">student</option>
+                                      <option value="teacher">teacher</option>
+                                      <option value="admin">admin</option>
+                                    </select>
+                                    {u.role !== 'admin' && (
+                                      <>
+                                        <button
+                                          className={`btn-small ${u.isApproved ? 'btn-danger' : 'btn-success'}`}
+                                          onClick={() => approveUser(u.id, !u.isApproved)}
+                                          disabled={adminBusy}
+                                        >
+                                          {u.isApproved ? 'Revoke' : 'Approve'}
+                                        </button>
+                                        <button
+                                          className="btn-danger btn-small"
+                                          onClick={() => deleteUser(u.id)}
+                                          disabled={adminBusy}
+                                          title="Delete User"
+                                        >
+                                          Delete
+                                        </button>
+                                      </>
+                                    )}
+                                  </>
                                 ) : (
-                                  <span className="format-badge">
-                                    {test.questionFormat === "mcq" ? "🔘 MCQ" :
-                                      test.questionFormat === "subjective" ? "✍️ Subjective" :
-                                        "📋 Mixed"}
-                                  </span>
+                                  <span className="pill">Read only</span>
                                 )}
-                              </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
 
-                              {/* Topic */}
-                              {test.topic && (
-                                <div className="test-meta-row">
-                                  <span className="test-meta-label">📚 Topic:</span>
-                                  <span className="test-meta-value">{test.topic}</span>
-                                </div>
-                              )}
-
-                              {/* Marks & Duration */}
-                              <div className="test-meta-row">
-                                <span className="test-meta-label">📊 Marks:</span>
-                                <span className="test-meta-value">{test.totalMarks} pts</span>
-                                <span style={{ marginLeft: '12px', color: '#aac8e4' }}>⏱️ {test.durationMinutes || 35} min</span>
-                              </div>
-
-                              {/* Difficulty */}
-                              {test.difficulty && (
-                                <div className="test-meta-row">
-                                  <span className="test-meta-label">🎯 Difficulty:</span>
-                                  <span className="test-meta-value" style={{
-                                    color: test.difficulty === 'easy' ? '#63f2de' :
-                                      test.difficulty === 'hard' ? '#ff6b6b' : '#ffd93d'
-                                  }}>
-                                    {test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1)}
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Start Date/Time */}
-                              {test.startsAt && (
-                                <div className="test-meta-row">
-                                  <span className="test-meta-label">🗓️ {Date.now() < new Date(test.startsAt).getTime() ? "Starts:" : "Started:"}</span>
-                                  <span className="test-meta-value">{formatShortDateTime(test.startsAt)}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Card Footer - Actions */}
-                            <div className="test-card-footer">
-                              <button
-                                className="btn-card-primary"
-                                onClick={() => loadTestAttempts(test.id)}
-                                disabled={attemptBusy}
-                              >
-                                👥 Review Submissions
-                              </button>
-                              <button
-                                className="btn-card-secondary"
-                                onClick={() => {
-                                  setEditingTestId(test.id);
-                                  setBookSessionId(test.bookSessionId);
-                                  setCreateTestForm((p) => ({
-                                    ...p,
-                                    title: test.title || "",
-                                    durationMinutes: test.durationMinutes || p.durationMinutes,
-                                    questionCount: test.questionCount || p.questionCount,
-                                    totalMarks: test.totalMarks || p.totalMarks,
-                                    difficulty: test.difficulty || p.difficulty,
-                                    questionFormat: test.questionFormat || p.questionFormat,
-                                    topic: test.topic || "",
-                                    startsAt: isoToLocalDatetimeInput(test.startsAt),
-                                    mcqCount: test.mcqCount || 0,
-                                    subjectiveCount: test.subjectiveCount || 0
-                                  }));
-                                  pushToast("Editing test settings.", "info");
-                                }}
-                                disabled={attemptBusy}
-                              >
-                                ✏️ Edit
-                              </button>
-                            </div>
+                    {isAdmin ? (
+                      <>
+                        <div className="evaluation gap-top">
+                          <div className="list-header">
+                            <h3>More Admin Functions</h3>
+                            <span className="pill success">System Control</span>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="empty-state">
-                        <div className="empty-state-icon">📝</div>
-                        <p className="empty-state-text">No tests created yet. Create your first test above!</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {reviewTestId ? (() => {
-                    // Find the test being reviewed
-                    const currentTest = teacherTests.find(t => t.id === reviewTestId);
-
-                    return (
-                      <div className="evaluation">
-                        <div className="list-header">
-                          <h3>Test Attempts{currentTest ? `: ${currentTest.title}` : ''}</h3>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            {selectedQuizIds.length > 0 && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="btn-primary btn-small"
-                                  onClick={bulkPublishResults}
-                                  disabled={bulkPublishing}
-                                >
-                                  {bulkPublishing ? '⏳ Publishing...' : `📤 Publish Selected (${selectedQuizIds.length})`}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-soft btn-small"
-                                  onClick={() => setSelectedQuizIds([])}
-                                >
-                                  ✖ Clear
-                                </button>
-                              </>
-                            )}
-                            <button type="button" className="btn-soft btn-small" onClick={() => setShowPublishedAttempts((v) => !v)}>
-                              {showPublishedAttempts ? "🔽 Hide Published" : "🔼 Show Published"}
+                          <p className="hint">Utility functions for platform maintenance and auditing.</p>
+                          <div className="row gap-top">
+                            <button className="btn-soft btn-small" onClick={() => pushToast("Audit Log fetched (Demo)", "info")}>
+                              View Audit Logs
+                            </button>
+                            <button className="btn-soft btn-small" onClick={() => pushToast("Cache cleared (Demo)", "info")}>
+                              Clear System Cache
+                            </button>
+                            <button className="btn-soft btn-small" onClick={() => pushToast("Storage optimized (Demo)", "info")}>
+                              Optimize Storage
                             </button>
                           </div>
                         </div>
-                        {(() => {
-                          const visible = (testAttempts || []).filter((a) => {
-                            // Hide finalized attempts (published 3+ times)
-                            if (Number(a.publishCount) >= 3) return false;
-                            // Show based on published toggle
-                            return showPublishedAttempts ? true : (a.completed && !a.teacherPublishedAt);
-                          });
-                          return visible.length ? (
-                            <div style={{ marginTop: '16px' }}>
-                              {visible.map((a) => {
-                                const isPublishable = a.completed && Number.isFinite(Number(a.teacherOverallMarks));
-                                const isSelected = selectedQuizIds.includes(a.quizId);
 
-                                return (
-                                  <div key={a.quizId} className="attempt-card">
-                                    <div className="attempt-info">
-                                      {isPublishable && (
-                                        <input
-                                          type="checkbox"
-                                          checked={isSelected}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedQuizIds([...selectedQuizIds, a.quizId]);
-                                            } else {
-                                              setSelectedQuizIds(selectedQuizIds.filter(id => id !== a.quizId));
-                                            }
-                                          }}
-                                          style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
-                                        />
-                                      )}
-                                      <div className="attempt-name">
-                                        {a.rollNo ? <span style={{ fontWeight: 600, color: '#63f2de', marginRight: '8px' }}>[{a.rollNo}]</span> : null}
-                                        {a.studentName || a.studentEmail || a.userId}
-                                      </div>
-                                      <div className="attempt-status-row">
-                                        {a.completed ? (
-                                          <span className="pill pill-success">✓ Submitted</span>
-                                        ) : (
-                                          <span className="pill">🔄 In Progress</span>
-                                        )}
-
-                                        {a.teacherPublishedAt ? (
-                                          <span className="pill" style={{ background: 'rgba(99, 242, 222, 0.2)', color: '#63f2de' }}>
-                                            {Number(a.publishCount) >= 3 ? "✓ Finalized" : "📤 Published"}{" "}
-                                            {a.publishCount ? `(${a.publishCount}/3)` : ""}
-                                          </span>
-                                        ) : a.completed ? (
-                                          <span className="pill danger">⚠️ Needs Review</span>
-                                        ) : (
-                                          <span className="pill" style={{ opacity: 0.6 }}>⏳ Awaiting Submission</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="attempt-actions">
-                                      <button
-                                        className="btn-card-primary"
-                                        onClick={() => loadReviewQuiz(a.quizId)}
-                                        disabled={attemptBusy}
-                                        style={{ minWidth: '80px' }}
-                                      >
-                                        📝 Open
-                                      </button>
-                                      <button
-                                        className="btn-card-secondary"
-                                        onClick={() => fetchProctorLogs(a.quizId)}
-                                        disabled={attemptBusy}
-                                        style={{ minWidth: '80px' }}
-                                        title="View proctoring logs"
-                                      >
-                                        🔒 Logs
-                                      </button>
-                                      {a.teacherPublishedAt && currentTest && (
-                                        <button
-                                          className="btn-card-secondary"
-                                          onClick={() => generateStudentReportPDF(a, currentTest)}
-                                          title="Download PDF Report"
-                                          style={{ minWidth: '80px' }}
-                                        >
-                                          📄 PDF
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="empty-state">
-                              <div className="empty-state-icon">📋</div>
-                              <p className="empty-state-text">
-                                {showPublishedAttempts ? "No attempts yet." : "No pending submissions to review."}
+                        <div className="evaluation gap-top">
+                          <div className="list-header">
+                            <h3>Global Exam Settings</h3>
+                            <span className="pill success">System-wide</span>
+                          </div>
+                          <p className="hint">Control shared behaviors across all student tests platform-wide.</p>
+                          <div className="row gap-top" style={{ alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ flex: 1 }}>
+                              <strong style={{ display: 'block', marginBottom: '4px' }}>Allow Copy-Paste in Tests</strong>
+                              <p className="hint" style={{ margin: 0, fontSize: '0.85rem' }}>
+                                {globalSettings.allowCopyPaste
+                                  ? "Students can currently paste text into answer boxes."
+                                  : "Pasting is strictly blocked. Enabling this requires admin password verification."}
                               </p>
                             </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })() : null}
+                            <label className="switch">
+                              <input
+                                type="checkbox"
+                                checked={globalSettings.allowCopyPaste}
+                                onChange={(e) => updateGlobalSettings(e.target.checked)}
+                                disabled={settingsBusy}
+                              />
+                              <span className="slider round"></span>
+                            </label>
+                          </div>
+                        </div>
 
-                  {reviewDetail ? (
-                    <div className="evaluation">
-                      {(() => {
-                        const pc = Number(reviewDetail?.status?.publishCount) || 0;
-                        const pl = Number(reviewDetail?.status?.publishLimit) || 3;
-                        const publishedBefore = Boolean(reviewDetail?.status?.teacherPublishedAt) || pc > 0;
-                        const dirtyEdits = stableSerializeEdits(reviewEdits) !== stableSerializeEdits(reviewBaseEdits);
-                        const dirtyOverall =
-                          String(reviewOverallMarks || "") !== String(reviewBaseOverallMarks || "") ||
-                          String(reviewOverallRemark || "") !== String(reviewBaseOverallRemark || "");
-                        const dirty = dirtyEdits || dirtyOverall;
-                        const overallMarksOk = normalizeOverallMarks(reviewOverallMarks) !== null;
+                        <div className="evaluation gap-top">
+                          <div className="list-header">
+                            <h3>Platform Reset</h3>
+                            <span className="pill danger">High Risk</span>
+                          </div>
+                          <p className="hint">Start from 0 by wiping tests, books, attempts, and history.</p>
+                          <div className="row gap-top">
+                            <button className="btn-soft btn-small" onClick={() => adminReset("data")} disabled={adminTestsBusy}>
+                              Reset Data (Keep Users)
+                            </button>
+                            <button className="btn-soft btn-small" onClick={() => adminReset("all")} disabled={adminTestsBusy}>
+                              Reset All (Wipe Users)
+                            </button>
+                          </div>
+                        </div>
 
-                        const publishDisabled = attemptBusy || pc >= pl || (publishedBefore && !dirty) || !overallMarksOk;
-                        const publishReason =
-                          pc >= pl
-                            ? `Republish limit reached (${pc}/${pl}).`
-                            : publishedBefore && !dirty
-                              ? "No changes since last publish. Edit marks/feedback to republish."
-                              : !overallMarksOk
-                                ? "Overall marks are required before publishing."
-                                : null;
-
-                        return (
-                          <>
-                            <div className="list-header">
-                              <h3>Teacher Review</h3>
-                              <span className="pill">Publish: {pc}/{pl}</span>
-                            </div>
-                            <p className="hint">
-                              Student: {reviewDetail.studentName || reviewDetail.studentEmail || reviewDetail.studentId}
-                              {reviewDetail.rollNo ? ` | Roll No: ${reviewDetail.rollNo}` : ""}
-                            </p>
-                            <p className="hint" style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                              Quiz ID: {reviewDetail.quizId} |
-                              Status: {reviewDetail.status?.teacherPublishedAt ? "Finalized" : "Draft"}
-                            </p>
-                            {publishReason ? <p className="warning">{publishReason}</p> : null}
-
-                            <div className="form-grid">
-                              {(reviewDetail.responses || []).map((r) => (
-                                <div key={r.question?.id} className="evaluation" style={{ position: 'relative' }}>
-                                  {r.isAI && (
-                                    <span className="pill success" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', padding: '2px 8px' }}>
-                                      🤖 AI Suggested
-                                    </span>
-                                  )}
-                                  <p className="prompt">{r.question?.prompt}</p>
-                                  {r.question?.type === "mcq" ? (
-                                    <p className="hint">
-                                      Student Choice:{" "}
-                                      {typeof r.mcqChoice === "number" && Array.isArray(r.question?.choices)
-                                        ? r.question.choices[r.mcqChoice] || `Option ${r.mcqChoice + 1}`
-                                        : "Not recorded"}
-                                    </p>
-                                  ) : (
-                                    <p className="hint">Student Answer: {r.answer}</p>
-                                  )}
-
-                                  {r.isAI && (
-                                    <div className="ai-feedback-box" style={{ background: 'rgba(59, 130, 246, 0.04)', marginBottom: '1rem', borderLeftColor: '#3b82f6' }}>
-                                      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                        <strong>AI Analysis: {r.percentage}%</strong>
-                                        {r.aiConfidence && <span className="hint" style={{ fontSize: '0.7rem' }}>Confidence: {Math.round(r.aiConfidence * 100)}%</span>}
-                                      </div>
-                                      <p className="hint" style={{ color: '#e2e8f0' }}>{r.feedback}</p>
-                                      {r.aiReasoning && (
-                                        <details style={{ marginTop: '0.5rem' }}>
-                                          <summary className="ai-reasoning-summary" style={{ fontSize: '0.8rem' }}>View Logic</summary>
-                                          <p className="hint" style={{ fontSize: '0.8rem', paddingTop: '0.5rem', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '0.5rem' }}>{r.aiReasoning}</p>
-                                        </details>
-                                      )}
+                        <div className="evaluation gap-top">
+                          <div className="list-header">
+                            <h3>All Tests</h3>
+                            <span className="pill">Count: {adminTests.length}</span>
+                          </div>
+                          {adminTests.length ? (
+                            <ul className="flat-list">
+                              {adminTests.map((t) => (
+                                <li key={t.id} className="list-row">
+                                  <div className="list-main">
+                                    <div className="list-title">{t.title}</div>
+                                    <div className="pill-wrap">
+                                      <span className="pill">Code: {t.joinCode}</span>
+                                      {t.totalMarks ? <span className="pill">Marks: {t.totalMarks}</span> : null}
+                                      {t.startsAt ? <span className="pill">Starts: {formatShortDateTime(t.startsAt)}</span> : null}
+                                      <span className="pill">Attempts: {t.attempts ?? 0}</span>
                                     </div>
-                                  )}
-                                  <div className="row">
-                                    <label>
-                                      Marks
-                                      <input
-                                        type="number"
-                                        step="0.5"
-                                        value={reviewEdits[r.question?.id]?.teacherMarksAwarded ?? 0}
-                                        onChange={(e) =>
-                                          setReviewEdits((p) => ({
-                                            ...p,
-                                            [r.question?.id]: {
-                                              ...p[r.question?.id],
-                                              teacherMarksAwarded: e.target.value
-                                            }
-                                          }))
-                                        }
-                                      />
-                                    </label>
-                                    <label>
-                                      Feedback
-                                      <input
-                                        value={reviewEdits[r.question?.id]?.teacherFeedback ?? ""}
-                                        onChange={(e) =>
-                                          setReviewEdits((p) => ({
-                                            ...p,
-                                            [r.question?.id]: {
-                                              ...p[r.question?.id],
-                                              teacherFeedback: e.target.value
-                                            }
-                                          }))
-                                        }
-                                      />
-                                    </label>
                                   </div>
-                                </div>
+                                  <div className="list-actions">
+                                    <button
+                                      className="btn-soft btn-small"
+                                      onClick={() => {
+                                        if (confirm(`Clear all attempt history for "${t.title}"? This cannot be undone.`)) {
+                                          // TODO: Implement clear history endpoint
+                                          alert("Clear history feature coming soon!");
+                                        }
+                                      }}
+                                      disabled={adminTestsBusy}
+                                    >
+                                      Clear History
+                                    </button>
+                                    <button className="btn-soft btn-small" onClick={() => adminDeleteTest(t.id)} disabled={adminTestsBusy}>
+                                      Delete
+                                    </button>
+                                  </div>
+                                </li>
                               ))}
-
-                              <div className="evaluation">
-                                <h4 style={{ margin: "0 0 0.6rem" }}>Final Overall Review</h4>
-                                <div className="row">
-                                  <label>
-                                    Overall Marks
-                                    <input
-                                      type="number"
-                                      step="0.5"
-                                      inputMode="decimal"
-                                      value={reviewOverallMarks}
-                                      onChange={(e) => setReviewOverallMarks(e.target.value)}
-                                      placeholder={`out of ${reviewDetail?.marks?.totalMarks ?? ""}`}
-                                    />
-                                  </label>
-                                  <label>
-                                    Overall Remark (optional)
-                                    <input
-                                      value={reviewOverallRemark}
-                                      onChange={(e) => setReviewOverallRemark(e.target.value)}
-                                      placeholder="e.g. Strong fundamentals, improve time complexity analysis."
-                                    />
-                                  </label>
-                                </div>
-                                <div className="row gap-top">
-                                  <button
-                                    type="button"
-                                    className="btn-soft btn-small"
-                                    onClick={() => setReviewOverallMarks(String(calcTeacherSum(reviewEdits)))}
-                                    disabled={attemptBusy}
-                                  >
-                                    Auto-calc From Q Marks
-                                  </button>
-                                  {reviewDetail?.marks?.totalMarks ? (
-                                    <span className="hint">
-                                      Total: {reviewDetail.marks.totalMarks} | Suggested: {calcTeacherSum(reviewEdits)}
-                                    </span>
-                                  ) : (
-                                    <span className="hint">Suggested: {calcTeacherSum(reviewEdits)}</span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="row">
-                                <button type="button" className="btn-soft" onClick={() => submitReview(false)} disabled={attemptBusy}>
-                                  Save Draft
-                                </button>
-                                <button type="button" onClick={() => submitReview(true)} disabled={publishDisabled}>
-                                  Publish Final Marks
-                                </button>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  ) : null}
-                </div>
-              </section >
-            ) : null
-            }
-
-            {user?.role === "student" ? (
-              <section className="card split-card">
-                <div>
-                  <h2>Student Panel</h2>
-                  {!isStudent ? (
-                    <p className="hint">Admin must assign your role as Student to join tests.</p>
-                  ) : (
-                    <div className="form-grid">
-                      <label>
-                        Enter Join Code
-                        <input
-                          value={joinCode}
-                          onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
-                          placeholder="e.g. A9P3QX"
-                        />
-                      </label>
-                      <label>
-                        Your Roll Number
-                        <input
-                          value={rollNo}
-                          onChange={(e) => setRollNo(e.target.value.trim())}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (joinCode && rollNo && !busy) joinTest();
-                            }
-                          }}
-                          placeholder="e.g. 2024-CS-01"
-                        />
-                      </label>
-                      {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
-                      <button type="button" onClick={joinTest} disabled={busy || !joinCode || !rollNo}>
-                        {busy ? "Joining..." : "Join Test"}
-                      </button>
-                      <p className="hint">On joining, camera and mic permissions will be requested and fullscreen will be activated.</p>
-                    </div>
-                  )}
-                </div>
-
-                {examActive ? (
-                  <div>
-                    <h2>AI Proctoring Feed</h2>
-                    <div className="camera-box">
-                      <video ref={videoRef} autoPlay muted playsInline />
-                      {!cameraReady ? <p className="hint">Camera preview inactive.</p> : null}
-                    </div>
-                    {cameraError ? <p className="error">{cameraError}</p> : null}
-                    <div className="evaluation">
-                      <p>Risk Score: {proctor.riskScore || 0}%</p>
-                      <p>Warnings: {proctor.warningCount || 0}</p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {!examActive ? (
-                  <div>
-                    <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
-                      <h2 style={{ margin: 0 }}>Test History</h2>
-                      <button className="btn-soft btn-small" onClick={loadMyAttempts} disabled={attemptBusy}>
-                        {attemptBusy ? "Loading..." : "Refresh"}
-                      </button>
-                    </div>
-                    <div className="evaluation gap-top">
-                      {myAttempts.length ? (
-                        <ul className="flat-list">
-                          {myAttempts.map((a) => (
-                            <li key={a.quizId} className="list-row">
-                              <div className="list-main">
-                                <div className="list-title">{a.testTitle || "Test"}</div>
-                                <div className="pill-wrap">
-                                  <span className="pill">{a.completed ? "Completed" : "In progress"}</span>
-                                  {a.topic ? <span className="pill">Topic: {a.topic}</span> : null}
-                                  {a.difficulty ? <span className="pill">Diff: {a.difficulty}</span> : null}
-                                  {a.questionFormat ? <span className="pill">Type: {a.questionFormat}</span> : null}
-                                </div>
-                              </div>
-                              <div className="list-actions">
-                                {!a.completed && a.joinCode ? (
-                                  <button
-                                    className="btn-soft btn-small"
-                                    onClick={() => {
-                                      setJoinCode(String(a.joinCode || "").toUpperCase());
-                                      joinTest();
-                                    }}
-                                    disabled={attemptBusy || busy}
-                                  >
-                                    Resume
-                                  </button>
-                                ) : null}
-                                <button
-                                  className="btn-soft btn-small"
-                                  onClick={() => {
-                                    setSelectedAttempt(a);
-                                    viewAttempt(a.quizId);
-                                  }}
-                                  disabled={attemptBusy}
-                                >
-                                  View
-                                </button>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="hint">No attempts yet.</p>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-            ) : null
-            }
-
-            {
-              isStudent && selectedAttemptDetail ? (
-                <section className="card result-display" style={{ marginTop: '2rem' }}>
-                  <div className="result-header">
-                    <h2>Attempt Review</h2>
-                    <div className="result-actions-bar">
-                      <div className={`result-remark-badge ${!selectedAttemptDetail.status?.teacherPublishedAt ? 'pending' : ''}`}>
-                        <span className="result-emoji">{!selectedAttemptDetail.status?.teacherPublishedAt ? "⏳" : "✅"}</span>
-                        <span className="result-label">
-                          {!selectedAttemptDetail.status?.teacherPublishedAt ? "Pending Teacher Review" : "Evaluation Finalized"}
-                        </span>
-                      </div>
-                      {!selectedAttemptDetail.status?.teacherPublishedAt && (
-                        <button className="btn-soft btn-small" onClick={refreshResultSync} disabled={busy}>
-                          {busy ? "🔄 Syncing..." : "🔄 Refresh Scores"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {selectedAttemptResult && (
-                    <div className="score-overview-grid">
-                      <div className={`score-card ${!selectedAttemptDetail.status?.teacherPublishedAt ? 'pending-card' : 'final'}`}>
-                        <div className="score-label-sub">Final Marks</div>
-                        <div className="score-circle-new">
-                          <div className="score-value-big">
-                            {selectedAttemptDetail.status?.teacherPublishedAt ? (selectedAttemptResult.marksObtained || 0) : ".."}
-                          </div>
-                          <div className="score-max-small">/ {selectedAttemptResult.totalMarks || 0}</div>
+                            </ul>
+                          ) : (
+                            <p className="hint">No tests found. Click Refresh Tests.</p>
+                          )}
                         </div>
-                        <div className="score-status-text" style={{ color: selectedAttemptDetail.status?.teacherPublishedAt ? '#10b981' : '#fbbf24' }}>
-                          {selectedAttemptDetail.status?.teacherPublishedAt ? "Validated" : "Under Review"}
-                        </div>
-                      </div>
-
-                      <div className="score-card ai-prediction">
-                        <div className="score-label-sub">AI Predicted Score</div>
-                        <div className="score-circle-new">
-                          <div className="score-value-big">
-                            {String((selectedAttemptDetail.responses || []).reduce((sum, r) => sum + (r.marksAwarded || 0), 0).toFixed(1))}
-                          </div>
-                          <div className="score-max-small">/ {selectedAttemptResult.totalMarks || 0}</div>
-                        </div>
-                        <div className="score-status-text" style={{ color: '#3b82f6' }}>
-                          Semantic Analysis
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="section-divider" style={{ margin: '3rem 0', height: '1px', background: 'rgba(255,255,255,0.05)' }} />
-                  <h3 style={{ marginBottom: '2rem' }}>Question-wise Analysis</h3>
-
-                  {(selectedAttemptDetail.responses || []).map((r) => (
-                    <div key={r.question?.id} className="evaluation" style={{ position: 'relative' }}>
-                      {r.isAI && (
-                        <span className="pill success" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', padding: '2px 8px' }}>
-                          🤖 AI Evaluated
-                        </span>
-                      )}
-                      <p className="prompt">{r.question?.prompt}</p>
-                      {r.question?.type === "mcq" ? (
-                        <p className="hint">
-                          Your Choice:{" "}
-                          {typeof r.mcqChoice === "number" && Array.isArray(r.question?.choices)
-                            ? r.question.choices[r.mcqChoice] || `Option ${r.mcqChoice + 1}`
-                            : "Not recorded"}
-                        </p>
-                      ) : (
-                        <p className="hint">Your Answer: {r.answer}</p>
-                      )}
-
-                      <div className="row" style={{ gap: '1rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
-                        {r.percentage !== null ? (
-                          <span className="stat-pill">AI Score: {r.percentage}%</span>
-                        ) : (
-                          <span className="stat-pill hint">AI Score: Pending</span>
-                        )}
-                        {r.marksAwarded !== null && (
-                          <span className="stat-pill">Marks: {r.marksAwarded}</span>
-                        )}
-                        {r.teacherMarksAwarded !== null && (
-                          <span className="stat-pill success">Teacher Marks: {r.teacherMarksAwarded}</span>
-                        )}
-                      </div>
-
-                      {r.feedback && (
-                        <div className="ai-feedback-box">
-                          <p><strong>Feedback:</strong> {r.feedback}</p>
-                        </div>
-                      )}
-
-                      {r.aiReasoning && (
-                        <details className="explain" style={{ marginTop: '0.5rem' }}>
-                          <summary className="ai-reasoning-summary">
-                            <span>🧠 AI Reasoning</span>
-                            {r.aiConfidence && (
-                              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                                <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Confidence: {Math.round(r.aiConfidence * 100)}%</span>
-                                <div className="confidence-meter">
-                                  <div className="confidence-fill" style={{ width: `${r.aiConfidence * 100}%` }} />
-                                </div>
-                              </div>
-                            )}
-                          </summary>
-                          <p className="hint" style={{ marginTop: '0.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '1rem' }}>
-                            {r.aiReasoning}
-                          </p>
-                        </details>
-                      )}
-
-                      {!r.aiReasoning && r.explanation && (
-                        <details className="explain">
-                          <summary>Concept Reference</summary>
-                          <p className="hint">{String(r.explanation).slice(0, 900)}</p>
-                        </details>
-                      )}
-
-                      {r.teacherFeedback && (
-                        <div className="teacher-overall-feedback" style={{ marginTop: '1rem', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '0.5rem' }}>
-                          <p className="hint"><strong>Teacher Feedback:</strong> {r.teacherFeedback}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </section>
-              ) : null
-            }
-
-            {
-              question ? (
-                <section className="card quiz-card">
-                  <div className="question-head">
-                    <span>Test: {joinedTest?.title || "Evalo Test"}</span>
-                    <span className="pill">Q{question.number}/{question.total}</span>
-                    <span className="pill">{question.difficulty}</span>
-                    <span className="pill">{question.type === "mcq" ? "MCQ" : "Subjective"}</span>
-                    <span className={`pill ${timeLeftSec < 300 ? "danger" : ""}`}>
-                      ⏱️ {formatTime(timeLeftSec)}
-                      {timeLeftSec < 300 && timeLeftSec > 0 ? " ⚠️" : ""}
-                    </span>
-                    {marksInfo?.totalMarks ? (
-                      <span className="pill">Marks: {marksInfo.totalMarks}</span>
+                      </>
                     ) : null}
-                    {autoSaveStatus && (
-                      <span className={`pill ${autoSaveStatus === "saved" ? "success" : autoSaveStatus === "error" ? "danger" : ""}`}>
-                        {autoSaveStatus === "saving" && "💾 Saving..."}
-                        {autoSaveStatus === "saved" && "✓ Saved"}
-                        {autoSaveStatus === "error" && "⚠️ Save failed"}
-                      </span>
-                    )}
+                  </>
+                )}
+              </section>
+            ) : (
+              <>
+                {/* Floating Gradient Orbs */}
+                <div className="floating-orbs">
+                  <div className="floating-orb orb-1"></div>
+                  <div className="floating-orb orb-2"></div>
+                  <div className="floating-orb orb-3"></div>
+                </div>
+
+                {/* Centered Hero Section */}
+                <motion.section
+                  className="hero-centered"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <div className="hero-title-container">
+                    <motion.img
+                      src="/evalo-logo.png"
+                      alt="Evalo Logo"
+                      className="hero-logo"
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ duration: 0.8, delay: 0.2 }}
+                    />
+                    <h1 className="gradient-text hero-title">Evalo Smart Examination Platform</h1>
+                  </div>
+                  <p className="hero-subtitle-centered">
+                    Next-generation exam orchestration powered by AI
+                  </p>
+
+                  <div className="pill-wrap-centered">
+                    <span
+                      className="pill-enhanced pill-clickable"
+                      onClick={() => {
+                        if (!user) {
+                          setAuthOpen(true);
+                          setError("Please login to access proctoring features");
+                        } else {
+                          const section = document.getElementById('features-section');
+                          section?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                    >
+                      <span className="pill-icon">📹</span>
+                      Camera + Mic Proctoring
+                    </span>
+                    <span
+                      className="pill-enhanced pill-clickable"
+                      onClick={() => {
+                        if (!user) {
+                          setAuthOpen(true);
+                          setError("Please login to access fullscreen enforcement");
+                        } else {
+                          const section = document.getElementById('features-section');
+                          section?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                    >
+                      <span className="pill-icon">🖥️</span>
+                      Auto Fullscreen Enforcement
+                    </span>
+                    <span
+                      className="pill-enhanced pill-clickable"
+                      onClick={() => {
+                        if (!user) {
+                          setAuthOpen(true);
+                          setError("Please login to access AI-powered evaluation");
+                        } else {
+                          const section = document.getElementById('features-section');
+                          section?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                    >
+                      <span className="pill-icon">🤖</span>
+                      AI-Powered Evaluation
+                    </span>
+                    <span
+                      className="pill-enhanced pill-clickable"
+                      onClick={() => {
+                        if (!user) {
+                          setAuthOpen(true);
+                          setError("Please login to access real-time analytics");
+                        } else {
+                          const section = document.getElementById('features-section');
+                          section?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                    >
+                      <span className="pill-icon">⚡</span>
+                      Real-time Analytics
+                    </span>
                   </div>
 
-                  <div className={`exam-stage ${fullscreenLocked ? "locked" : ""}`}>
-                    <div className="exam-content">
-                      <p className="prompt">{question.prompt}</p>
+                  <div className="cta-group-centered">
+                    <button
+                      className="cta-button glow-effect"
+                      onClick={() => {
+                        const features = document.getElementById('features-section');
+                        features?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      <span>Get Started Free</span>
+                    </button>
+                    <button
+                      className="cta-button cta-secondary"
+                      onClick={() => {
+                        const features = document.getElementById('features-section');
+                        features?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      <span>Explore Features</span>
+                    </button>
+                  </div>
+                </motion.section>
 
-                      <form className="form-grid" onSubmit={submitAnswer}>
-                        {question.type === "mcq" ? (
-                          <div className="mcq-box">
-                            <p className="hint">Select one option:</p>
-                            <div className="mcq-list">
-                              {(question.choices || []).map((c, idx) => (
-                                <label key={idx} className={`mcq-option ${mcqChoice === idx ? "active" : ""}`}>
-                                  <input
-                                    type="radio"
-                                    name="mcq"
-                                    checked={mcqChoice === idx}
-                                    onChange={() => setMcqChoice(idx)}
-                                  />
-                                  <span>{c}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <label>
-                            Your Answer
-                            <textarea
-                              rows={10}
-                              minLength={10}
-                              required
-                              value={answer}
-                              onChange={(e) => setAnswer(e.target.value)}
-                              onCopy={(e) => {
-                                e.preventDefault();
-                                sendProctorEvent("copy_attempt", { source: "textarea" });
-                              }}
-                              onPaste={(e) => {
-                                e.preventDefault();
-                                sendProctorEvent("paste_attempt", { source: "textarea" });
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                sendProctorEvent("paste_attempt", { source: "drop" });
-                              }}
-                              onDragOver={(e) => e.preventDefault()}
-                              onBeforeInput={(e) => {
-                                const t = e?.nativeEvent?.inputType || "";
-                                if (t === "insertFromPaste" || t === "insertFromDrop") {
-                                  e.preventDefault();
-                                  sendProctorEvent("paste_attempt", { source: t });
-                                }
-                              }}
-                              placeholder="Type your detailed answer here..."
-                            />
-                            <div className="answer-stats">
-                              <span className="hint">Words: {wordCount} | Characters: {characterCount}</span>
-                              {lastSavedAt && (
-                                <span className="hint">Last saved: {lastSavedAt.toLocaleTimeString()}</span>
-                              )}
-                            </div>
-                          </label>
-                        )}
-                        <button type="submit" disabled={busy || fullscreenLocked}>
-                          {busy ? "Evaluating..." : "Submit Answer"}
+                {/* Centered Stats Section */}
+                <motion.section
+                  className="stats-grid-centered"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.6 }}
+                >
+                  <div className="stat-card-large">
+                    <p className="stat-number-large">AI-Powered</p>
+                    <p className="stat-label-large">Adaptive Learning</p>
+                  </div>
+                  <div className="stat-card-large">
+                    <p className="stat-number-large">Real-time</p>
+                    <p className="stat-label-large">Proctoring System</p>
+                  </div>
+                  <div className="stat-card-large">
+                    <p className="stat-number-large">Secure</p>
+                    <p className="stat-label-large">Exam Environment</p>
+                  </div>
+                  <div className="stat-card-large">
+                    <p className="stat-number-large">Smart</p>
+                    <p className="stat-label-large">Auto Grading</p>
+                  </div>
+                </motion.section>
+
+                {/* Feature Cards Section */}
+                <motion.section
+                  id="features-section"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5, duration: 0.6 }}
+                >
+                  <h2 style={{ textAlign: 'center', marginTop: '3rem', marginBottom: '1rem', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: '#f1fbff' }}>
+                    Platform Capabilities
+                  </h2>
+                  <div className="feature-cards-grid">
+                    <motion.div
+                      className="feature-card"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
+                    >
+                      <div className="feature-icon">🎯</div>
+                      <h3>Adaptive Assessment</h3>
+                      <p>
+                        AI-driven subjective question evaluation that adapts to student responses.
+                        Generate personalized tests from uploaded materials with intelligent difficulty scaling.
+                      </p>
+                    </motion.div>
+
+                    <motion.div
+                      className="feature-card"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.7, duration: 0.5 }}
+                    >
+                      <div className="feature-icon">🔒</div>
+                      <h3>Advanced Proctoring</h3>
+                      <p>
+                        Multi-layered security with camera monitoring, fullscreen enforcement,
+                        copy-paste detection, and real-time risk scoring to ensure exam integrity.
+                      </p>
+                    </motion.div>
+
+                    <motion.div
+                      className="feature-card"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8, duration: 0.5 }}
+                    >
+                      <div className="feature-icon">📊</div>
+                      <h3>Intelligent Analytics</h3>
+                      <p>
+                        Comprehensive performance tracking with detailed feedback, teacher review capabilities,
+                        and automated grading powered by advanced AI models.
+                      </p>
+                    </motion.div>
+                  </div>
+                </motion.section>
+
+
+                {user?.role === "teacher" ? (
+                  <section className="card split-card">
+                    <div>
+                      <h2>Teacher Panel</h2>
+                      <form className="form-grid" onSubmit={uploadBooks}>
+                        <label>
+                          Upload one or more books (PDF/TXT)
+                          <input
+                            type="file"
+                            multiple
+                            accept=".pdf,.txt"
+                            onChange={(e) => setBookFiles(e.target.files || [])}
+                          />
+                        </label>
+                        <button type="submit" disabled={busy}>
+                          {busy ? "Uploading..." : "Upload & Index"}
                         </button>
                       </form>
+
+                      {uploadStats ? (
+                        <div className="evaluation">
+                          <p>Book Session: {bookSessionId}</p>
+                          <p>{uploadStats.chunks} chunks | {uploadStats.questions} generated questions</p>
+                        </div>
+                      ) : null}
+
+                      <div className="form-grid gap-top">
+                        <label>
+                          Test Title
+                          <input
+                            value={createTestForm.title}
+                            onChange={(e) => setCreateTestForm((p) => ({ ...p, title: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          Total Marks
+                          <input
+                            type="number"
+                            min="10"
+                            max="1000"
+                            step="1"
+                            value={createTestForm.totalMarks}
+                            inputMode="numeric"
+                            onChange={(e) => {
+                              const raw = digitsOnly(e.target.value);
+                              setCreateTestForm((p) => ({ ...p, totalMarks: raw ? Number(raw) : 0 }));
+                            }}
+                            onBlur={(e) => {
+                              const normalized = normalizeIntString(e.target.value, 10, 1000, 100);
+                              setCreateTestForm((p) => ({ ...p, totalMarks: Number(normalized) }));
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Duration (minutes)
+                          <input
+                            type="number"
+                            min="5"
+                            max="180"
+                            step="1"
+                            value={createTestForm.durationMinutes}
+                            inputMode="numeric"
+                            onChange={(e) => {
+                              const raw = digitsOnly(e.target.value);
+                              setCreateTestForm((p) => ({ ...p, durationMinutes: raw ? Number(raw) : 0 }));
+                            }}
+                            onBlur={(e) => {
+                              const normalized = normalizeIntString(e.target.value, 5, 180, 35);
+                              setCreateTestForm((p) => ({ ...p, durationMinutes: Number(normalized) }));
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Questions
+                          <input
+                            type="number"
+                            min="4"
+                            max="20"
+                            step="1"
+                            value={createTestForm.questionCount}
+                            inputMode="numeric"
+                            onChange={(e) => {
+                              const raw = digitsOnly(e.target.value);
+                              setCreateTestForm((p) => ({ ...p, questionCount: raw ? Number(raw) : 0 }));
+                            }}
+                            onBlur={(e) => {
+                              const normalized = normalizeIntString(e.target.value, 4, 20, 6);
+                              setCreateTestForm((p) => ({ ...p, questionCount: Number(normalized) }));
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Topic (optional)
+                          <input
+                            value={createTestForm.topic}
+                            onChange={(e) => setCreateTestForm((p) => ({ ...p, topic: e.target.value }))}
+                            placeholder="e.g. Graphs, DP, Trees"
+                          />
+                        </label>
+                        <label>
+                          Start Date *
+                          <input
+                            type="date"
+                            value={createTestForm.startsAt ? createTestForm.startsAt.split('T')[0] : ''}
+                            onChange={(e) => {
+                              const currentTime = createTestForm.startsAt ? createTestForm.startsAt.split('T')[1] || '09:00' : '09:00';
+                              setCreateTestForm((p) => ({ ...p, startsAt: e.target.value ? `${e.target.value}T${currentTime}` : '' }));
+                            }}
+                            required
+                          />
+                        </label>
+                        <label>
+                          Start Time *
+                          <input
+                            type="time"
+                            value={createTestForm.startsAt ? createTestForm.startsAt.split('T')[1] || '' : ''}
+                            onChange={(e) => {
+                              const currentDate = createTestForm.startsAt ? createTestForm.startsAt.split('T')[0] : new Date().toISOString().split('T')[0];
+                              setCreateTestForm((p) => ({ ...p, startsAt: e.target.value ? `${currentDate}T${e.target.value}` : '' }));
+                            }}
+                            required
+                          />
+                        </label>
+                        <label>
+                          Difficulty
+                          <select
+                            value={createTestForm.difficulty}
+                            onChange={(e) => setCreateTestForm((p) => ({ ...p, difficulty: e.target.value }))}
+                          >
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                          </select>
+                        </label>
+                        <label>
+                          Question Type
+                          <select
+                            value={createTestForm.questionFormat}
+                            onChange={(e) => {
+                              const format = e.target.value;
+                              setCreateTestForm((p) => {
+                                // If switching to mixed, set default split
+                                if (format === "mixed") {
+                                  const half = Math.floor(p.questionCount / 2);
+                                  return {
+                                    ...p,
+                                    questionFormat: format,
+                                    mcqCount: half,
+                                    subjectiveCount: p.questionCount - half
+                                  };
+                                }
+                                return { ...p, questionFormat: format, mcqCount: 0, subjectiveCount: 0 };
+                              });
+                            }}
+                          >
+                            <option value="subjective">Subjective</option>
+                            <option value="mcq">MCQ</option>
+                            <option value="mixed">Mixed</option>
+                          </select>
+                        </label>
+
+                        {createTestForm.questionFormat === "mixed" && (
+                          <>
+                            <label>
+                              MCQ Questions *
+                              <input
+                                type="number"
+                                min="1"
+                                max={createTestForm.questionCount - 1}
+                                value={createTestForm.mcqCount}
+                                onChange={(e) => {
+                                  const mcq = parseInt(e.target.value) || 0;
+                                  setCreateTestForm((p) => ({
+                                    ...p,
+                                    mcqCount: mcq,
+                                    subjectiveCount: p.questionCount - mcq
+                                  }));
+                                }}
+                                required
+                              />
+                            </label>
+                            <label>
+                              Subjective Questions *
+                              <input
+                                type="number"
+                                min="1"
+                                max={createTestForm.questionCount - 1}
+                                value={createTestForm.subjectiveCount}
+                                onChange={(e) => {
+                                  const subj = parseInt(e.target.value) || 0;
+                                  setCreateTestForm((p) => ({
+                                    ...p,
+                                    subjectiveCount: subj,
+                                    mcqCount: p.questionCount - subj
+                                  }));
+                                }}
+                                required
+                              />
+                            </label>
+                            <p className="hint" style={{ marginTop: '-10px', fontSize: '0.85em', color: createTestForm.mcqCount + createTestForm.subjectiveCount === createTestForm.questionCount ? '#63f2de' : '#ff6b6b' }}>
+                              {createTestForm.mcqCount} MCQ + {createTestForm.subjectiveCount} Subjective = {createTestForm.mcqCount + createTestForm.subjectiveCount} / {createTestForm.questionCount} total
+                              {createTestForm.mcqCount + createTestForm.subjectiveCount !== createTestForm.questionCount && " ⚠️ Must equal total!"}
+                            </p>
+                          </>
+                        )}
+                        <div className="row">
+                          <button type="button" onClick={createTest} disabled={busy}>
+                            {busy ? "Saving..." : editingTestId ? "Save Changes" : "Create / Schedule Test"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-soft btn-small"
+                            onClick={clearDraft}
+                            disabled={busy}
+                            title="Clear draft and reset form"
+                          >
+                            🗑️ Clear Draft
+                          </button>
+                          {editingTestId ? (
+                            <button
+                              type="button"
+                              className="btn-soft btn-small"
+                              onClick={() => {
+                                setEditingTestId("");
+                                setCreateTestForm((p) => ({ ...p, title: "", topic: "", startsAt: "" }));
+                              }}
+                              disabled={busy}
+                            >
+                              Cancel Edit
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {createdTest ? (
+                        <div className="evaluation">
+                          <h3>Latest Test Created</h3>
+                          <p>{createdTest.title}</p>
+                          <p className="big-code">Join Code: {createdTest.joinCode}</p>
+                          {createdTest.topic ? <p className="hint">Topic: {createdTest.topic}</p> : null}
+                          {createdTest.difficulty ? <p className="hint">Difficulty: {createdTest.difficulty}</p> : null}
+                          {createdTest.questionFormat ? <p className="hint">Type: {createdTest.questionFormat}</p> : null}
+                          {createdTest.totalMarks ? (
+                            <p className="hint">
+                              Total Marks: {createdTest.totalMarks} | Marks/Q: {createdTest.marksPerQuestion}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
-                    {fullscreenLocked ? (
-                      <div className="fullscreen-overlay">
-                        <div className="fullscreen-card">
-                          <p className="fullscreen-title">Fullscreen Required</p>
-                          <p className="hint">Questions are blurred until fullscreen is active.</p>
-                          <button type="button" onClick={requestFullscreenNow}>
-                            Return to Fullscreen
+                    <div>
+                      <h2>Teacher Assets</h2>
+
+                      <div className="evaluation">
+                        <h3>My Tests</h3>
+                        {teacherTests.length ? (
+                          <div className="test-grid">
+                            {teacherTests.map((test) => (
+                              <div key={test.id} className="test-card">
+                                {/* Card Header */}
+                                <div className="test-card-header">
+                                  <h4 className="test-card-title">{test.title}</h4>
+                                  <div className="test-card-code">
+                                    {test.joinCode}
+                                  </div>
+                                </div>
+
+                                {/* Card Body - Metadata */}
+                                <div className="test-card-body">
+                                  {/* Question Format */}
+                                  <div className="test-meta-row">
+                                    <span className="test-meta-label">📝 Format:</span>
+                                    {test.questionFormat === "mixed" && test.mcqCount && test.subjectiveCount ? (
+                                      <span className="format-badge mixed">
+                                        {test.mcqCount} MCQ + {test.subjectiveCount} Subjective
+                                      </span>
+                                    ) : (
+                                      <span className="format-badge">
+                                        {test.questionFormat === "mcq" ? "🔘 MCQ" :
+                                          test.questionFormat === "subjective" ? "✍️ Subjective" :
+                                            "📋 Mixed"}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Topic */}
+                                  {test.topic && (
+                                    <div className="test-meta-row">
+                                      <span className="test-meta-label">📚 Topic:</span>
+                                      <span className="test-meta-value">{test.topic}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Marks & Duration */}
+                                  <div className="test-meta-row">
+                                    <span className="test-meta-label">📊 Marks:</span>
+                                    <span className="test-meta-value">{test.totalMarks} pts</span>
+                                    <span style={{ marginLeft: '12px', color: '#aac8e4' }}>⏱️ {test.durationMinutes || 35} min</span>
+                                  </div>
+
+                                  {/* Difficulty */}
+                                  {test.difficulty && (
+                                    <div className="test-meta-row">
+                                      <span className="test-meta-label">🎯 Difficulty:</span>
+                                      <span className="test-meta-value" style={{
+                                        color: test.difficulty === 'easy' ? '#63f2de' :
+                                          test.difficulty === 'hard' ? '#ff6b6b' : '#ffd93d'
+                                      }}>
+                                        {test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1)}
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  {/* Start Date/Time */}
+                                  {test.startsAt && (
+                                    <div className="test-meta-row">
+                                      <span className="test-meta-label">🗓️ {Date.now() < new Date(test.startsAt).getTime() ? "Starts:" : "Started:"}</span>
+                                      <span className="test-meta-value">{formatShortDateTime(test.startsAt)}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Card Footer - Actions */}
+                                <div className="test-card-footer">
+                                  <button
+                                    className="btn-card-primary"
+                                    onClick={() => loadTestAttempts(test.id)}
+                                    disabled={attemptBusy}
+                                  >
+                                    👥 Review Submissions
+                                  </button>
+                                  <button
+                                    className="btn-card-secondary"
+                                    onClick={() => {
+                                      setEditingTestId(test.id);
+                                      setBookSessionId(test.bookSessionId);
+                                      setCreateTestForm((p) => ({
+                                        ...p,
+                                        title: test.title || "",
+                                        durationMinutes: test.durationMinutes || p.durationMinutes,
+                                        questionCount: test.questionCount || p.questionCount,
+                                        totalMarks: test.totalMarks || p.totalMarks,
+                                        difficulty: test.difficulty || p.difficulty,
+                                        questionFormat: test.questionFormat || p.questionFormat,
+                                        topic: test.topic || "",
+                                        startsAt: isoToLocalDatetimeInput(test.startsAt),
+                                        mcqCount: test.mcqCount || 0,
+                                        subjectiveCount: test.subjectiveCount || 0
+                                      }));
+                                      pushToast("Editing test settings.", "info");
+                                    }}
+                                    disabled={attemptBusy}
+                                  >
+                                    ✏️ Edit
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="empty-state">
+                            <div className="empty-state-icon">📝</div>
+                            <p className="empty-state-text">No tests created yet. Create your first test above!</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {reviewTestId ? (() => {
+                        // Find the test being reviewed
+                        const currentTest = teacherTests.find(t => t.id === reviewTestId);
+
+                        return (
+                          <div className="evaluation">
+                            <div className="list-header">
+                              <h3>Test Attempts{currentTest ? `: ${currentTest.title}` : ''}</h3>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                {selectedQuizIds.length > 0 && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn-primary btn-small"
+                                      onClick={bulkPublishResults}
+                                      disabled={bulkPublishing}
+                                    >
+                                      {bulkPublishing ? '⏳ Publishing...' : `📤 Publish Selected (${selectedQuizIds.length})`}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn-soft btn-small"
+                                      onClick={() => setSelectedQuizIds([])}
+                                    >
+                                      ✖ Clear
+                                    </button>
+                                  </>
+                                )}
+                                <button type="button" className="btn-soft btn-small" onClick={() => setShowPublishedAttempts((v) => !v)}>
+                                  {showPublishedAttempts ? "🔽 Hide Published" : "🔼 Show Published"}
+                                </button>
+                              </div>
+                            </div>
+                            {(() => {
+                              const visible = (testAttempts || []).filter((a) => {
+                                // Hide finalized attempts (published 3+ times)
+                                if (Number(a.publishCount) >= 3) return false;
+                                // Show based on published toggle
+                                return showPublishedAttempts ? true : (a.completed && !a.teacherPublishedAt);
+                              });
+                              return visible.length ? (
+                                <div style={{ marginTop: '16px' }}>
+                                  {visible.map((a) => {
+                                    const isPublishable = a.completed && Number.isFinite(Number(a.teacherOverallMarks));
+                                    const isSelected = selectedQuizIds.includes(a.quizId);
+
+                                    return (
+                                      <div key={a.quizId} className="attempt-card">
+                                        <div className="attempt-info">
+                                          {isPublishable && (
+                                            <input
+                                              type="checkbox"
+                                              checked={isSelected}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  setSelectedQuizIds([...selectedQuizIds, a.quizId]);
+                                                } else {
+                                                  setSelectedQuizIds(selectedQuizIds.filter(id => id !== a.quizId));
+                                                }
+                                              }}
+                                              style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+                                            />
+                                          )}
+                                          <div className="attempt-name">
+                                            {a.rollNo ? <span style={{ fontWeight: 600, color: '#63f2de', marginRight: '8px' }}>[{a.rollNo}]</span> : null}
+                                            {a.studentName || a.studentEmail || a.userId}
+                                          </div>
+                                          <div className="attempt-status-row">
+                                            {a.completed ? (
+                                              <span className="pill pill-success">✓ Submitted</span>
+                                            ) : (
+                                              <span className="pill">🔄 In Progress</span>
+                                            )}
+
+                                            {a.teacherPublishedAt ? (
+                                              <span className="pill" style={{ background: 'rgba(99, 242, 222, 0.2)', color: '#63f2de' }}>
+                                                {Number(a.publishCount) >= 3 ? "✓ Finalized" : "📤 Published"}{" "}
+                                                {a.publishCount ? `(${a.publishCount}/3)` : ""}
+                                              </span>
+                                            ) : a.completed ? (
+                                              <span className="pill danger">⚠️ Needs Review</span>
+                                            ) : (
+                                              <span className="pill" style={{ opacity: 0.6 }}>⏳ Awaiting Submission</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="attempt-actions">
+                                          <button
+                                            className="btn-card-primary"
+                                            onClick={() => loadReviewQuiz(a.quizId)}
+                                            disabled={attemptBusy}
+                                            style={{ minWidth: '80px' }}
+                                          >
+                                            📝 Open
+                                          </button>
+                                          <button
+                                            className="btn-card-secondary"
+                                            onClick={() => fetchProctorLogs(a.quizId)}
+                                            disabled={attemptBusy}
+                                            style={{ minWidth: '80px' }}
+                                            title="View proctoring logs"
+                                          >
+                                            🔒 Logs
+                                          </button>
+                                          {a.teacherPublishedAt && currentTest && (
+                                            <button
+                                              className="btn-card-secondary"
+                                              onClick={() => generateStudentReportPDF(a, currentTest)}
+                                              title="Download PDF Report"
+                                              style={{ minWidth: '80px' }}
+                                            >
+                                              📄 PDF
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="empty-state">
+                                  <div className="empty-state-icon">📋</div>
+                                  <p className="empty-state-text">
+                                    {showPublishedAttempts ? "No attempts yet." : "No pending submissions to review."}
+                                  </p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })() : null}
+
+                      {reviewDetail ? (
+                        <div className="evaluation">
+                          {(() => {
+                            const pc = Number(reviewDetail?.status?.publishCount) || 0;
+                            const pl = Number(reviewDetail?.status?.publishLimit) || 3;
+                            const publishedBefore = Boolean(reviewDetail?.status?.teacherPublishedAt) || pc > 0;
+                            const dirtyEdits = stableSerializeEdits(reviewEdits) !== stableSerializeEdits(reviewBaseEdits);
+                            const dirtyOverall =
+                              String(reviewOverallMarks || "") !== String(reviewBaseOverallMarks || "") ||
+                              String(reviewOverallRemark || "") !== String(reviewBaseOverallRemark || "");
+                            const dirty = dirtyEdits || dirtyOverall;
+                            const overallMarksOk = normalizeOverallMarks(reviewOverallMarks) !== null;
+
+                            const publishDisabled = attemptBusy || pc >= pl || (publishedBefore && !dirty) || !overallMarksOk;
+                            const publishReason =
+                              pc >= pl
+                                ? `Republish limit reached (${pc}/${pl}).`
+                                : publishedBefore && !dirty
+                                  ? "No changes since last publish. Edit marks/feedback to republish."
+                                  : !overallMarksOk
+                                    ? "Overall marks are required before publishing."
+                                    : null;
+
+                            return (
+                              <>
+                                <div className="list-header">
+                                  <h3>Teacher Review</h3>
+                                  <span className="pill">Publish: {pc}/{pl}</span>
+                                </div>
+                                <p className="hint">
+                                  Student: {reviewDetail.studentName || reviewDetail.studentEmail || reviewDetail.studentId}
+                                  {reviewDetail.rollNo ? ` | Roll No: ${reviewDetail.rollNo}` : ""}
+                                </p>
+                                <p className="hint" style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                                  Quiz ID: {reviewDetail.quizId} |
+                                  Status: {reviewDetail.status?.teacherPublishedAt ? "Finalized" : "Draft"}
+                                </p>
+                                {publishReason ? <p className="warning">{publishReason}</p> : null}
+
+                                <div className="form-grid">
+                                  {(reviewDetail.responses || []).map((r) => (
+                                    <div key={r.question?.id} className="evaluation" style={{ position: 'relative' }}>
+                                      {r.isAI && (
+                                        <span className="pill success" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', padding: '2px 8px' }}>
+                                          🤖 AI Suggested
+                                        </span>
+                                      )}
+                                      <p className="prompt">{r.question?.prompt}</p>
+                                      {r.question?.type === "mcq" ? (
+                                        <p className="hint">
+                                          Student Choice:{" "}
+                                          {typeof r.mcqChoice === "number" && Array.isArray(r.question?.choices)
+                                            ? r.question.choices[r.mcqChoice] || `Option ${r.mcqChoice + 1}`
+                                            : "Not recorded"}
+                                        </p>
+                                      ) : (
+                                        <p className="hint">Student Answer: {r.answer}</p>
+                                      )}
+
+                                      {r.isAI && (
+                                        <div className="ai-feedback-box" style={{ background: 'rgba(59, 130, 246, 0.04)', marginBottom: '1rem', borderLeftColor: '#3b82f6' }}>
+                                          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <strong>AI Analysis: {r.percentage}%</strong>
+                                            {r.aiConfidence && <span className="hint" style={{ fontSize: '0.7rem' }}>Confidence: {Math.round(r.aiConfidence * 100)}%</span>}
+                                          </div>
+                                          <p className="hint" style={{ color: '#e2e8f0' }}>{r.feedback}</p>
+                                          {r.aiReasoning && (
+                                            <details style={{ marginTop: '0.5rem' }}>
+                                              <summary className="ai-reasoning-summary" style={{ fontSize: '0.8rem' }}>View Logic</summary>
+                                              <p className="hint" style={{ fontSize: '0.8rem', paddingTop: '0.5rem', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '0.5rem' }}>{r.aiReasoning}</p>
+                                            </details>
+                                          )}
+                                        </div>
+                                      )}
+                                      <div className="row">
+                                        <label>
+                                          Marks
+                                          <input
+                                            type="number"
+                                            step="0.5"
+                                            value={reviewEdits[r.question?.id]?.teacherMarksAwarded ?? 0}
+                                            onChange={(e) =>
+                                              setReviewEdits((p) => ({
+                                                ...p,
+                                                [r.question?.id]: {
+                                                  ...p[r.question?.id],
+                                                  teacherMarksAwarded: e.target.value
+                                                }
+                                              }))
+                                            }
+                                          />
+                                        </label>
+                                        <label>
+                                          Feedback
+                                          <input
+                                            value={reviewEdits[r.question?.id]?.teacherFeedback ?? ""}
+                                            onChange={(e) =>
+                                              setReviewEdits((p) => ({
+                                                ...p,
+                                                [r.question?.id]: {
+                                                  ...p[r.question?.id],
+                                                  teacherFeedback: e.target.value
+                                                }
+                                              }))
+                                            }
+                                          />
+                                        </label>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  <div className="evaluation">
+                                    <h4 style={{ margin: "0 0 0.6rem" }}>Final Overall Review</h4>
+                                    <div className="row">
+                                      <label>
+                                        Overall Marks
+                                        <input
+                                          type="number"
+                                          step="0.5"
+                                          inputMode="decimal"
+                                          value={reviewOverallMarks}
+                                          onChange={(e) => setReviewOverallMarks(e.target.value)}
+                                          placeholder={`out of ${reviewDetail?.marks?.totalMarks ?? ""}`}
+                                        />
+                                      </label>
+                                      <label>
+                                        Overall Remark (optional)
+                                        <input
+                                          value={reviewOverallRemark}
+                                          onChange={(e) => setReviewOverallRemark(e.target.value)}
+                                          placeholder="e.g. Strong fundamentals, improve time complexity analysis."
+                                        />
+                                      </label>
+                                    </div>
+                                    <div className="row gap-top">
+                                      <button
+                                        type="button"
+                                        className="btn-soft btn-small"
+                                        onClick={() => setReviewOverallMarks(String(calcTeacherSum(reviewEdits)))}
+                                        disabled={attemptBusy}
+                                      >
+                                        Auto-calc From Q Marks
+                                      </button>
+                                      {reviewDetail?.marks?.totalMarks ? (
+                                        <span className="hint">
+                                          Total: {reviewDetail.marks.totalMarks} | Suggested: {calcTeacherSum(reviewEdits)}
+                                        </span>
+                                      ) : (
+                                        <span className="hint">Suggested: {calcTeacherSum(reviewEdits)}</span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="row">
+                                    <button type="button" className="btn-soft" onClick={() => submitReview(false)} disabled={attemptBusy}>
+                                      Save Draft
+                                    </button>
+                                    <button type="button" onClick={() => submitReview(true)} disabled={publishDisabled}>
+                                      Publish Final Marks
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ) : null}
+                    </div>
+                  </section >
+                ) : null
+                }
+
+                {user?.role === "student" ? (
+                  <section className="card split-card">
+                    <div>
+                      <h2>Student Panel</h2>
+                      {!isStudent ? (
+                        <p className="hint">Admin must assign your role as Student to join tests.</p>
+                      ) : (
+                        <div className="form-grid">
+                          <label>
+                            Enter Join Code
+                            <input
+                              value={joinCode}
+                              onChange={(e) => setJoinCode(e.target.value.toUpperCase().trim())}
+                              placeholder="e.g. A9P3QX"
+                            />
+                          </label>
+                          <label>
+                            Your Roll Number
+                            <input
+                              value={rollNo}
+                              onChange={(e) => setRollNo(e.target.value.trim())}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (joinCode && rollNo && !busy) joinTest();
+                                }
+                              }}
+                              placeholder="e.g. 2024-CS-01"
+                            />
+                          </label>
+                          {error && <p className="error" style={{ marginBottom: '1rem' }}>{error}</p>}
+                          <button type="button" onClick={joinTest} disabled={busy || !joinCode || !rollNo}>
+                            {busy ? "Joining..." : "Join Test"}
                           </button>
+                          <p className="hint">On joining, camera and mic permissions will be requested and fullscreen will be activated.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {examActive ? (
+                      <div>
+                        <h2>AI Proctoring Feed</h2>
+                        <div className="camera-box">
+                          <video ref={videoRef} autoPlay muted playsInline />
+                          {!cameraReady ? <p className="hint">Camera preview inactive.</p> : null}
+                        </div>
+                        {cameraError ? <p className="error">{cameraError}</p> : null}
+                        <div className="evaluation">
+                          <p>Risk Score: {proctor.riskScore || 0}%</p>
+                          <p>Warnings: {proctor.warningCount || 0}</p>
                         </div>
                       </div>
                     ) : null}
-                  </div>
-                </section>
-              ) : null
-            }
 
-            {
-              lastEvaluation ? (
-                <section className="card evaluation">
-                  <h3>Latest Answer Evaluation</h3>
-                  <p>Correctness: {lastEvaluation.percentage}%</p>
-                  {typeof lastEvaluation.marksAwarded === "number" ? (
-                    <p>
-                      Marks: {lastEvaluation.marksAwarded} / {lastEvaluation.marksPerQuestion ?? "-"}
-                    </p>
-                  ) : null}
-                  {typeof lastEvaluation.cheatingPenalty === "number" ? (
-                    <p>Cheating Penalty: {lastEvaluation.cheatingPenalty}%</p>
-                  ) : null}
-                  <p className="hint">{lastEvaluation.feedback}</p>
-                  {lastEvaluation.explanation ? (
-                    <details className="explain">
-                      <summary>AI Explanation</summary>
-                      <p className="hint">{String(lastEvaluation.explanation).slice(0, 900)}</p>
-                    </details>
-                  ) : null}
-                </section>
-              ) : null
-            }
+                    {!examActive ? (
+                      <div>
+                        <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+                          <h2 style={{ margin: 0 }}>Test History</h2>
+                          <button className="btn-soft btn-small" onClick={loadMyAttempts} disabled={attemptBusy}>
+                            {attemptBusy ? "Loading..." : "Refresh"}
+                          </button>
+                        </div>
+                        <div className="evaluation gap-top">
+                          {myAttempts.length ? (
+                            <ul className="flat-list">
+                              {myAttempts.map((a) => (
+                                <li key={a.quizId} className="list-row">
+                                  <div className="list-main">
+                                    <div className="list-title">{a.testTitle || "Test"}</div>
+                                    <div className="pill-wrap">
+                                      <span className="pill">{a.completed ? "Completed" : "In progress"}</span>
+                                      {a.topic ? <span className="pill">Topic: {a.topic}</span> : null}
+                                      {a.difficulty ? <span className="pill">Diff: {a.difficulty}</span> : null}
+                                      {a.questionFormat ? <span className="pill">Type: {a.questionFormat}</span> : null}
+                                    </div>
+                                  </div>
+                                  <div className="list-actions">
+                                    {!a.completed && a.joinCode ? (
+                                      <button
+                                        className="btn-soft btn-small"
+                                        onClick={() => {
+                                          setJoinCode(String(a.joinCode || "").toUpperCase());
+                                          joinTest();
+                                        }}
+                                        disabled={attemptBusy || busy}
+                                      >
+                                        Resume
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      className="btn-soft btn-small"
+                                      onClick={() => {
+                                        setSelectedAttempt(a);
+                                        viewAttempt(a.quizId);
+                                      }}
+                                      disabled={attemptBusy}
+                                    >
+                                      View
+                                    </button>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="hint">No attempts yet.</p>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null
+                }
 
-            {
-              result ? (
-                <section className="card result-display">
-                  <div className="result-header">
-                    <h2>🎉 Test Completed!</h2>
-                    <div className="result-actions-bar">
-                      <div className={`result-remark-badge ${!result.teacherPublishedAt ? 'pending' : ''}`}>
-                        <span className="result-emoji">{!result.teacherPublishedAt ? "⏳" : (result.remark?.emoji || "✅")}</span>
-                        <span className="result-label">
-                          {!result.teacherPublishedAt ? "Pending for Teacher Review" : (result.remark?.label || "Test Evaluated")}
+                {
+                  isStudent && selectedAttemptDetail ? (
+                    <section className="card result-display" style={{ marginTop: '2rem' }}>
+                      <div className="result-header">
+                        <h2>Attempt Review</h2>
+                        <div className="result-actions-bar">
+                          <div className={`result-remark-badge ${!selectedAttemptDetail.status?.teacherPublishedAt ? 'pending' : ''}`}>
+                            <span className="result-emoji">{!selectedAttemptDetail.status?.teacherPublishedAt ? "⏳" : "✅"}</span>
+                            <span className="result-label">
+                              {!selectedAttemptDetail.status?.teacherPublishedAt ? "Pending Teacher Review" : "Evaluation Finalized"}
+                            </span>
+                          </div>
+                          {!selectedAttemptDetail.status?.teacherPublishedAt && (
+                            <button className="btn-soft btn-small" onClick={refreshResultSync} disabled={busy}>
+                              {busy ? "🔄 Syncing..." : "🔄 Refresh Scores"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {selectedAttemptResult && (
+                        <div className="score-overview-grid">
+                          <div className={`score-card ${!selectedAttemptDetail.status?.teacherPublishedAt ? 'pending-card' : 'final'}`}>
+                            <div className="score-label-sub">Final Marks</div>
+                            <div className="score-circle-new">
+                              <div className="score-value-big">
+                                {selectedAttemptDetail.status?.teacherPublishedAt ? (selectedAttemptResult.marksObtained || 0) : ".."}
+                              </div>
+                              <div className="score-max-small">/ {selectedAttemptResult.totalMarks || 0}</div>
+                            </div>
+                            <div className="score-status-text" style={{ color: selectedAttemptDetail.status?.teacherPublishedAt ? '#10b981' : '#fbbf24' }}>
+                              {selectedAttemptDetail.status?.teacherPublishedAt ? "Validated" : "Under Review"}
+                            </div>
+                          </div>
+
+                          <div className="score-card ai-prediction">
+                            <div className="score-label-sub">AI Predicted Score</div>
+                            <div className="score-circle-new">
+                              <div className="score-value-big">
+                                {String((selectedAttemptDetail.responses || []).reduce((sum, r) => sum + (r.marksAwarded || 0), 0).toFixed(1))}
+                              </div>
+                              <div className="score-max-small">/ {selectedAttemptResult.totalMarks || 0}</div>
+                            </div>
+                            <div className="score-status-text" style={{ color: '#3b82f6' }}>
+                              Semantic Analysis
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="section-divider" style={{ margin: '3rem 0', height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+                      <h3 style={{ marginBottom: '2rem' }}>Question-wise Analysis</h3>
+
+                      {(selectedAttemptDetail.responses || []).map((r) => (
+                        <div key={r.question?.id} className="evaluation" style={{ position: 'relative' }}>
+                          {r.isAI && (
+                            <span className="pill success" style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', padding: '2px 8px' }}>
+                              🤖 AI Evaluated
+                            </span>
+                          )}
+                          <p className="prompt">{r.question?.prompt}</p>
+                          {r.question?.type === "mcq" ? (
+                            <p className="hint">
+                              Your Choice:{" "}
+                              {typeof r.mcqChoice === "number" && Array.isArray(r.question?.choices)
+                                ? r.question.choices[r.mcqChoice] || `Option ${r.mcqChoice + 1}`
+                                : "Not recorded"}
+                            </p>
+                          ) : (
+                            <p className="hint">Your Answer: {r.answer}</p>
+                          )}
+
+                          <div className="row" style={{ gap: '1rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
+                            {r.percentage !== null ? (
+                              <span className="stat-pill">AI Score: {r.percentage}%</span>
+                            ) : (
+                              <span className="stat-pill hint">AI Score: Pending</span>
+                            )}
+                            {r.marksAwarded !== null && (
+                              <span className="stat-pill">Marks: {r.marksAwarded}</span>
+                            )}
+                            {r.teacherMarksAwarded !== null && (
+                              <span className="stat-pill success">Teacher Marks: {r.teacherMarksAwarded}</span>
+                            )}
+                          </div>
+
+                          {r.feedback && (
+                            <div className="ai-feedback-box">
+                              <p><strong>Feedback:</strong> {r.feedback}</p>
+                            </div>
+                          )}
+
+                          {r.aiReasoning && (
+                            <details className="explain" style={{ marginTop: '0.5rem' }}>
+                              <summary className="ai-reasoning-summary">
+                                <span>🧠 AI Reasoning</span>
+                                {r.aiConfidence && (
+                                  <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                                    <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Confidence: {Math.round(r.aiConfidence * 100)}%</span>
+                                    <div className="confidence-meter">
+                                      <div className="confidence-fill" style={{ width: `${r.aiConfidence * 100}%` }} />
+                                    </div>
+                                  </div>
+                                )}
+                              </summary>
+                              <p className="hint" style={{ marginTop: '0.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '1rem' }}>
+                                {r.aiReasoning}
+                              </p>
+                            </details>
+                          )}
+
+                          {!r.aiReasoning && r.explanation && (
+                            <details className="explain">
+                              <summary>Concept Reference</summary>
+                              <p className="hint">{String(r.explanation).slice(0, 900)}</p>
+                            </details>
+                          )}
+
+                          {r.teacherFeedback && (
+                            <div className="teacher-overall-feedback" style={{ marginTop: '1rem', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '0.5rem' }}>
+                              <p className="hint"><strong>Teacher Feedback:</strong> {r.teacherFeedback}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </section>
+                  ) : null
+                }
+
+                {
+                  question ? (
+                    <section className="card quiz-card">
+                      <div className="question-head">
+                        <span>Test: {joinedTest?.title || "Evalo Test"}</span>
+                        <span className="pill">Q{question.number}/{question.total}</span>
+                        <span className="pill">{question.difficulty}</span>
+                        <span className="pill">{question.type === "mcq" ? "MCQ" : "Subjective"}</span>
+                        <span className={`pill ${timeLeftSec < 300 ? "danger" : ""}`}>
+                          ⏱️ {formatTime(timeLeftSec)}
+                          {timeLeftSec < 300 && timeLeftSec > 0 ? " ⚠️" : ""}
                         </span>
+                        {marksInfo?.totalMarks ? (
+                          <span className="pill">Marks: {marksInfo.totalMarks}</span>
+                        ) : null}
+                        {autoSaveStatus && (
+                          <span className={`pill ${autoSaveStatus === "saved" ? "success" : autoSaveStatus === "error" ? "danger" : ""}`}>
+                            {autoSaveStatus === "saving" && "💾 Saving..."}
+                            {autoSaveStatus === "saved" && "✓ Saved"}
+                            {autoSaveStatus === "error" && "⚠️ Save failed"}
+                          </span>
+                        )}
                       </div>
-                      {!result.teacherPublishedAt && (
-                        <button className="btn-soft btn-small" onClick={refreshResultSync} disabled={busy}>
-                          {busy ? "🔄 Syncing..." : "🔄 Refresh Scores"}
-                        </button>
+
+                      <div className={`exam-stage ${fullscreenLocked ? "locked" : ""}`}>
+                        <div className="exam-content">
+                          <p className="prompt">{question.prompt}</p>
+
+                          <form className="form-grid" onSubmit={submitAnswer}>
+                            {question.type === "mcq" ? (
+                              <div className="mcq-box">
+                                <p className="hint">Select one option:</p>
+                                <div className="mcq-list">
+                                  {(question.choices || []).map((c, idx) => (
+                                    <label key={idx} className={`mcq-option ${mcqChoice === idx ? "active" : ""}`}>
+                                      <input
+                                        type="radio"
+                                        name="mcq"
+                                        checked={mcqChoice === idx}
+                                        onChange={() => setMcqChoice(idx)}
+                                      />
+                                      <span>{c}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <label>
+                                Your Answer
+                                <textarea
+                                  rows={10}
+                                  minLength={10}
+                                  required
+                                  value={answer}
+                                  onChange={(e) => setAnswer(e.target.value)}
+                                  onCopy={(e) => {
+                                    e.preventDefault();
+                                    sendProctorEvent("copy_attempt", { source: "textarea" });
+                                  }}
+                                  onPaste={(e) => {
+                                    e.preventDefault();
+                                    sendProctorEvent("paste_attempt", { source: "textarea" });
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    sendProctorEvent("paste_attempt", { source: "drop" });
+                                  }}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onBeforeInput={(e) => {
+                                    const t = e?.nativeEvent?.inputType || "";
+                                    if (t === "insertFromPaste" || t === "insertFromDrop") {
+                                      e.preventDefault();
+                                      sendProctorEvent("paste_attempt", { source: t });
+                                    }
+                                  }}
+                                  placeholder="Type your detailed answer here..."
+                                />
+                                <div className="answer-stats">
+                                  <span className="hint">Words: {wordCount} | Characters: {characterCount}</span>
+                                  {lastSavedAt && (
+                                    <span className="hint">Last saved: {lastSavedAt.toLocaleTimeString()}</span>
+                                  )}
+                                </div>
+                              </label>
+                            )}
+                            <button type="submit" disabled={busy || fullscreenLocked}>
+                              {busy ? "Evaluating..." : "Submit Answer"}
+                            </button>
+                          </form>
+                        </div>
+
+                        {fullscreenLocked ? (
+                          <div className="fullscreen-overlay">
+                            <div className="fullscreen-card">
+                              <p className="fullscreen-title">Fullscreen Required</p>
+                              <p className="hint">Questions are blurred until fullscreen is active.</p>
+                              <button type="button" onClick={requestFullscreenNow}>
+                                Return to Fullscreen
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </section>
+                  ) : null
+                }
+
+                {
+                  lastEvaluation ? (
+                    <section className="card evaluation">
+                      <h3>Latest Answer Evaluation</h3>
+                      <p>Correctness: {lastEvaluation.percentage}%</p>
+                      {typeof lastEvaluation.marksAwarded === "number" ? (
+                        <p>
+                          Marks: {lastEvaluation.marksAwarded} / {lastEvaluation.marksPerQuestion ?? "-"}
+                        </p>
+                      ) : null}
+                      {typeof lastEvaluation.cheatingPenalty === "number" ? (
+                        <p>Cheating Penalty: {lastEvaluation.cheatingPenalty}%</p>
+                      ) : null}
+                      <p className="hint">{lastEvaluation.feedback}</p>
+                      {lastEvaluation.explanation ? (
+                        <details className="explain">
+                          <summary>AI Explanation</summary>
+                          <p className="hint">{String(lastEvaluation.explanation).slice(0, 900)}</p>
+                        </details>
+                      ) : null}
+                    </section>
+                  ) : null
+                }
+
+                {
+                  result ? (
+                    <section className="card result-display">
+                      <div className="result-header">
+                        <h2>🎉 Test Completed!</h2>
+                        <div className="result-actions-bar">
+                          <div className={`result-remark-badge ${!result.teacherPublishedAt ? 'pending' : ''}`}>
+                            <span className="result-emoji">{!result.teacherPublishedAt ? "⏳" : (result.remark?.emoji || "✅")}</span>
+                            <span className="result-label">
+                              {!result.teacherPublishedAt ? "Pending for Teacher Review" : (result.remark?.label || "Test Evaluated")}
+                            </span>
+                          </div>
+                          {!result.teacherPublishedAt && (
+                            <button className="btn-soft btn-small" onClick={refreshResultSync} disabled={busy}>
+                              {busy ? "🔄 Syncing..." : "🔄 Refresh Scores"}
+                            </button>
+                          )}
+                          {result.teacherPublishedAt && (
+                            <button
+                              className="btn-soft btn-small"
+                              onClick={() => generateStudentReportPDF(result, joinedTest || { title: result.testTitle, totalMarks: result.totalMarks })}
+                              title="Download Results as PDF"
+                            >
+                              📄 Download PDF
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="score-overview-grid">
+                        <div className={`score-card ${!result.teacherPublishedAt ? 'pending-card' : 'final'}`}>
+                          <div className="score-label-sub">Final Marks</div>
+                          <div className="score-circle-new">
+                            <div className="score-value-big">
+                              {result.teacherPublishedAt ? (result.marksObtained || 0) : ".."}
+                            </div>
+                            <div className="score-max-small">/ {result.totalMarks || 0}</div>
+                          </div>
+                          <div className="score-status-text" style={{ color: result.teacherPublishedAt ? '#10b981' : '#fbbf24' }}>
+                            {result.teacherPublishedAt ? "Validated" : "Under Review"}
+                          </div>
+                        </div>
+
+                        <div className="score-card ai-prediction">
+                          <div className="score-label-sub">AI Predicted Score</div>
+                          <div className="score-circle-new">
+                            <div className="score-value-big">
+                              {String((result.responses || []).reduce((sum, r) => sum + (r.marksAwarded || 0), 0).toFixed(1))}
+                            </div>
+                            <div className="score-max-small">/ {result.totalMarks || 0}</div>
+                          </div>
+                          <div className="score-status-text" style={{ color: '#3b82f6' }}>
+                            Semantic Analysis
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="performance-stats" style={{ marginTop: '2rem' }}>
+                        <div className="stat-card">
+                          <div className="stat-icon">📊</div>
+                          <div className="stat-content">
+                            <div className="stat-label">Level Progression</div>
+                            <div className="stat-value">
+                              {result.levelProgression?.started || "N/A"} → {result.levelProgression?.ended || "N/A"}
+                            </div>
+                          </div>
+                        </div>
+                        {/* ... stats ... */}
+                        <div className="stat-card">
+                          <div className="stat-icon">🎯</div>
+                          <div className="stat-content">
+                            <div className="stat-label">Difficulty Breakdown</div>
+                            <div className="stat-value stat-breakdown">
+                              <span>Beg: {result.difficultyBreakdown?.beginner ?? 0}</span>
+                              <span>Int: {result.difficultyBreakdown?.intermediate ?? 0}</span>
+                              <span>Adv: {result.difficultyBreakdown?.advanced ?? 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon">🔒</div>
+                          <div className="stat-content">
+                            <div className="stat-label">Proctoring</div>
+                            <div className="stat-value">
+                              Risk: {result.proctoring?.riskScore ?? 0}%
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {result.teacherOverallRemark && (
+                        <div className="teacher-overall-feedback" style={{ marginTop: '2.5rem', padding: '2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <h3 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>💬 Teacher's Comments</h3>
+                          <p className="feedback-text" style={{ color: '#e2e8f0', lineHeight: '1.6', fontSize: '1.05rem' }}>{result.teacherOverallRemark}</p>
+                        </div>
                       )}
-                      {result.teacherPublishedAt && (
-                        <button
-                          className="btn-soft btn-small"
-                          onClick={() => generateStudentReportPDF(result, joinedTest || { title: result.testTitle, totalMarks: result.totalMarks })}
-                          title="Download Results as PDF"
-                        >
-                          📄 Download PDF
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="score-overview-grid">
-                    <div className={`score-card ${!result.teacherPublishedAt ? 'pending-card' : 'final'}`}>
-                      <div className="score-label-sub">Final Marks</div>
-                      <div className="score-circle-new">
-                        <div className="score-value-big">
-                          {result.teacherPublishedAt ? (result.marksObtained || 0) : ".."}
-                        </div>
-                        <div className="score-max-small">/ {result.totalMarks || 0}</div>
-                      </div>
-                      <div className="score-status-text" style={{ color: result.teacherPublishedAt ? '#10b981' : '#fbbf24' }}>
-                        {result.teacherPublishedAt ? "Validated" : "Under Review"}
-                      </div>
-                    </div>
-
-                    <div className="score-card ai-prediction">
-                      <div className="score-label-sub">AI Predicted Score</div>
-                      <div className="score-circle-new">
-                        <div className="score-value-big">
-                          {String((result.responses || []).reduce((sum, r) => sum + (r.marksAwarded || 0), 0).toFixed(1))}
-                        </div>
-                        <div className="score-max-small">/ {result.totalMarks || 0}</div>
-                      </div>
-                      <div className="score-status-text" style={{ color: '#3b82f6' }}>
-                        Semantic Analysis
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="performance-stats" style={{ marginTop: '2rem' }}>
-                    <div className="stat-card">
-                      <div className="stat-icon">📊</div>
-                      <div className="stat-content">
-                        <div className="stat-label">Level Progression</div>
-                        <div className="stat-value">
-                          {result.levelProgression?.started || "N/A"} → {result.levelProgression?.ended || "N/A"}
-                        </div>
-                      </div>
-                    </div>
-                    {/* ... stats ... */}
-                    <div className="stat-card">
-                      <div className="stat-icon">🎯</div>
-                      <div className="stat-content">
-                        <div className="stat-label">Difficulty Breakdown</div>
-                        <div className="stat-value stat-breakdown">
-                          <span>Beg: {result.difficultyBreakdown?.beginner ?? 0}</span>
-                          <span>Int: {result.difficultyBreakdown?.intermediate ?? 0}</span>
-                          <span>Adv: {result.difficultyBreakdown?.advanced ?? 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="stat-icon">🔒</div>
-                      <div className="stat-content">
-                        <div className="stat-label">Proctoring</div>
-                        <div className="stat-value">
-                          Risk: {result.proctoring?.riskScore ?? 0}%
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {result.teacherOverallRemark && (
-                    <div className="teacher-overall-feedback" style={{ marginTop: '2.5rem', padding: '2rem', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <h3 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>💬 Teacher's Comments</h3>
-                      <p className="feedback-text" style={{ color: '#e2e8f0', lineHeight: '1.6', fontSize: '1.05rem' }}>{result.teacherOverallRemark}</p>
-                    </div>
-                  )}
-                </section>
-              ) : null
-            }
+                    </section>
+                  ) : null
+                }
+              </>
+            )}
           </>
-        )
-        }
-      </main >
-    </div >
+        )}
+      </main>
+      <AddUserModal
+        open={addUserOpen}
+        onClose={() => setAddUserOpen(false)}
+        onSubmit={addUser}
+        busy={adminBusy}
+        form={addUserForm}
+        setForm={setAddUserForm}
+        error={addUserError}
+      />
+    </div>
   );
 }

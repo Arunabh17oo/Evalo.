@@ -1310,7 +1310,6 @@ td {
   padding-top: 0;
 }
 
-
 .stats-grid-centered {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
@@ -1322,7 +1321,6 @@ td {
 
 .stat-number-large {
   font-size: 2rem;
-}
 }
 
 /* ========================================
@@ -1599,6 +1597,7 @@ td {
   background: linear-gradient(135deg, #ffffff, #94a3b8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .result-actions-bar {
@@ -1863,8 +1862,6 @@ td {
 .result-meta .hint {
   margin: 0.5rem 0;
   font-size: 0.9rem;
-}
-}
 }
 
 /* Toggle Switch */

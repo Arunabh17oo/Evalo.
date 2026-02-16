@@ -1,6 +1,6 @@
 # Evalo - Adaptive AI Exam Platform (OpenAI + Proctoring)
 
-Evalo is a premium, AI-powered examination platform designed for subjective and objective assessment with intelligent proctoring, real-time result synchronization, and comprehensive administrative controls.
+Evalo is a premium, AI-powered examination platform designed for subjective and objective assessment with intelligent proctoring, real-time result synchronization, and robust administrative controls.
 
 ## 🚀 Core Features
 
@@ -8,10 +8,10 @@ Evalo is a premium, AI-powered examination platform designed for subjective and 
   - **OpenAI Integration**: High-precision subjective answer evaluation with contextual reasoning and sentiment analysis.
   - **Local NLP Fallback**: Robust local similarity metrics (Cosine, Jaccard, Keyword Coverage) for offline or fallback grading.
 - **Premium UI/UX**: 
-  - Glassmorphic design with a 3D-simulated logo.
+  - Glassmorphic design with a 3D-simulated logo and dynamic animations.
   - Responsive layout optimized for both student examination and teacher administration.
 - **Strict Role-Based Ecosystem**:
-  - **Admin**: Dedicated **Admin Control Center** for user role management, system auditing, platform maintenance, and **Global Security Settings**.
+  - **Admin**: Dedicated **Admin Hub** for user creation/deletion, role assignment, system auditing, and **Global Security Settings**.
   - **Teacher**: **Teacher Hub** for book indexing (RAG foundation), test creation, bulk publication, and manual result overrides.
   - **Student**: Intuitive exam interface with **Mandatory Roll Number** registration and real-time **Score Synchronization**.
 - **Advanced Proctoring & Integrity**:
@@ -19,13 +19,22 @@ Evalo is a premium, AI-powered examination platform designed for subjective and 
   - **Single Attempt Enforcement**: Students are strictly limited to one attempt per test session.
   - Fullscreen enforcement and camera/mic tracking with live behavior risk scoring.
 
+## 🛡️ Security & Access Control
+
+- **Admin Account Protection**: Administrators are protected from deletion or role changes to maintain system integrity.
+- **Manual User Management**: Admins can directly add, delete, and approve users within the Admin Hub.
+- **Approval Workflow**: New signups are gated by a "Pending Approval" view. Users can use the **Refresh Status** button to gain instant access once approved by an admin.
+- **Specific Validations**: Clear error messaging (e.g., *"Already registered user sign in instead"*) for better user onboarding.
+
 ## 🔄 Results & Synchronization
+
 Evalo ensures students see their results the moment they are ready:
 - **Background Polling**: Student result dashboards automatically refresh every 30 seconds if marks are pending.
 - **Manual Sync**: A "Refresh Scores" button is available for instant synchronization.
 - **Bulk Publish**: Teachers can publish scores for multiple students at once.
 
 ## 📊 Analytics & Reporting
+
 - **Roll Number Identification**: Students are identified via unique Roll Numbers across all teacher reports and reviews.
 - **Question-wise Analysis**: Detailed AI feedback for every student response.
 - **PDF Reports**: Professional 3-column PDF reports generated for every individual attempt.
@@ -34,7 +43,7 @@ Evalo ensures students see their results the moment they are ready:
 
 ### Backend Setup
 ```bash
-cd Backend
+cd backend
 npm install
 npm run dev
 ```
@@ -44,17 +53,12 @@ npm run dev
 
 ### Frontend Setup
 ```bash
-cd Frontend
+cd frontend
 npm install
 npm run dev
 ```
-- **Default URL**: `http://localhost:5173`
+- **Default URL**: `http://localhost:5174` (check terminal for active port)
 - **Tech Stack**: React, Vite, Framer Motion, Axios, jsPDF.
-
-## 🔒 Security & Persistence
-- **State Preservation**: LocalStorage-based draft saving for test creation and exam progress.
-- **Password Protection**: Sensitive Admin actions (like enabling copy-paste) require password re-verification.
-- **Environment Variables**: Use `.env` for `OPENAI_API_KEY`, `MONGODB_URI`, and `JWT_SECRET`.
 
 ---
 *Self-evolving intelligence for modern education.*

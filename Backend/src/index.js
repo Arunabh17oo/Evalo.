@@ -210,6 +210,7 @@ if (mongoose) {
       email: { type: String, unique: true, index: true },
       passwordHash: String,
       role: { type: String, enum: ROLES, default: "student" },
+      isApproved: { type: Boolean, default: false },
       createdAt: Date
     },
     { versionKey: false, strict: false }
@@ -545,6 +546,7 @@ async function persistUser(user) {
         email: user.email,
         passwordHash: user.passwordHash,
         role: user.role,
+        isApproved: Boolean(user.isApproved),
         createdAt: new Date(user.createdAt || Date.now())
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -934,6 +936,7 @@ function sanitizeUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    isApproved: user.role === 'admin' ? true : Boolean(user.isApproved),
     createdAt: user.createdAt
   };
 }
@@ -960,6 +963,7 @@ async function authRequired(req, res, next) {
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
         role: userDoc.role,
+        isApproved: Boolean(userDoc.isApproved),
         createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
       };
       users.set(user.id, user);
@@ -1365,6 +1369,7 @@ async function seedAdmin() {
     email: "admin@evalo.ai",
     passwordHash: hashPassword("admin123"),
     role: "admin",
+    isApproved: true,
     createdAt: new Date().toISOString()
   };
   users.set(id, adminUser);
@@ -1397,22 +1402,24 @@ app.post("/api/auth/signup", async (req, res) => {
   if (!/^\S+@\S+\.\S+$/.test(emailNorm)) {
     return res.status(400).json({ error: "Valid email is required." });
   }
-  if (usersByEmail.has(emailNorm)) return res.status(409).json({ error: "Email already exists." });
+  if (usersByEmail.has(emailNorm)) return res.status(409).json({ error: "Already registered user sign in instead" });
   if (dbReady) {
     const existing = await UserModel.findOne({ email: emailNorm }).lean();
-    if (existing) return res.status(409).json({ error: "Email already exists." });
+    if (existing) return res.status(409).json({ error: "Already registered user sign in instead" });
   }
   if (!password || String(password).length < 6) {
     return res.status(400).json({ error: "Password must be at least 6 characters." });
   }
 
+  const role = ROLES.includes(req.body?.role) ? req.body.role : "student";
   const id = uuidv4();
   const user = {
     id,
     name: String(name).trim(),
     email: emailNorm,
     passwordHash: hashPassword(String(password)),
-    role: "student",
+    role,
+    isApproved: false,
     createdAt: new Date().toISOString()
   };
 
@@ -1443,6 +1450,7 @@ app.post("/api/auth/login", async (req, res) => {
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
         role: userDoc.role,
+        isApproved: Boolean(userDoc.isApproved),
         createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
       };
       users.set(user.id, user);
@@ -1590,6 +1598,7 @@ app.get("/api/admin/users", authRequired, requireRoles("admin", "teacher"), (req
           name: d.name,
           email: d.email,
           role: d.role,
+          isApproved: Boolean(d.isApproved),
           createdAt: d.createdAt?.toISOString?.() || new Date(d.createdAt).toISOString()
         })),
         canEditRoles: req.user.role === "admin"
@@ -1610,6 +1619,7 @@ app.patch("/api/admin/users/:userId/role", authRequired, requireRoles("admin"), 
   const role = String(req.body?.role || "").toLowerCase();
 
   if (!user) return res.status(404).json({ error: "User not found." });
+  if (user.role === "admin") return res.status(403).json({ error: "Cannot demote an admin." });
   if (req.params.userId === req.user.id) {
     return res.status(400).json({ error: "Admin cannot change their own role." });
   }
@@ -1626,6 +1636,67 @@ app.patch("/api/admin/users/:userId/role", authRequired, requireRoles("admin"), 
     });
   }
   return res.json({ user: sanitizeUser(user) });
+});
+
+app.patch("/api/admin/users/:userId/approve", authRequired, requireRoles("admin"), async (req, res) => {
+  const user = users.get(req.params.userId);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  if (user.role === "admin") return res.status(403).json({ error: "Admin approval status is fixed." });
+
+  user.isApproved = req.body.isApproved === true;
+  users.set(user.id, user);
+  if (dbReady) {
+    await persistUser(user);
+    await logHistory(req.user.id, "user_approval_updated", {
+      targetUserId: user.id,
+      isApproved: user.isApproved
+    });
+  }
+  return res.json({ user: sanitizeUser(user) });
+});
+
+app.post("/api/admin/users/add", authRequired, requireRoles("admin"), async (req, res) => {
+  const { name, email, password, role } = req.body || {};
+  const emailNorm = String(email || "").trim().toLowerCase();
+
+  if (!name || name.trim().length < 2) return res.status(400).json({ error: "Name required." });
+  if (!emailNorm || !emailNorm.includes("@")) return res.status(400).json({ error: "Valid email required." });
+  if (usersByEmail.has(emailNorm)) return res.status(400).json({ error: "Email already exists." });
+  if (!password || password.length < 6) return res.status(400).json({ error: "Password (min 6 chars) required." });
+
+  const id = uuidv4();
+  const user = {
+    id,
+    name: name.trim(),
+    email: emailNorm,
+    passwordHash: hashPassword(password),
+    role: ROLES.includes(role) ? role : "student",
+    isApproved: true,
+    createdAt: new Date().toISOString()
+  };
+
+  users.set(id, user);
+  usersByEmail.set(emailNorm, id);
+  if (dbReady) await persistUser(user);
+
+  await logHistory(req.user.id, "user_added_by_admin", { targetEmail: emailNorm, role: user.role });
+  return res.json({ user: sanitizeUser(user) });
+});
+
+app.delete("/api/admin/users/:userId", authRequired, requireRoles("admin"), async (req, res) => {
+  const user = users.get(req.params.userId);
+  if (!user) return res.status(404).json({ error: "User not found." });
+  if (user.role === "admin") return res.status(403).json({ error: "Admins cannot be deleted." });
+
+  users.delete(user.id);
+  usersByEmail.delete(user.email);
+
+  if (dbReady && UserModel) {
+    await UserModel.findByIdAndDelete(user.id);
+  }
+
+  await logHistory(req.user.id, "user_deleted_by_admin", { targetEmail: user.email });
+  return res.json({ ok: true });
 });
 
 async function deleteTestEverywhere(testId, opts = {}) {
