@@ -22,8 +22,9 @@ Evalo is a premium, AI-powered examination platform designed for subjective and 
 ## 🛡️ Security & Access Control
 
 - **Admin Account Protection**: Administrators are protected from deletion or role changes to maintain system integrity.
-- **Manual User Management**: Admins can directly add, delete, and approve users within the Admin Hub.
+- **Manual User Management**: Admins can directly add, delete, and approve users within the Admin Hub. The backend now ensures **Synchronized Persistence**, automatically fetching and caching users from the database during admin actions.
 - **Approval Workflow**: New signups are gated by a "Pending Approval" view. Users can use the **Refresh Status** button to gain instant access once approved by an admin.
+- **Improved UI Feedback**: High-priority **Toast Notifications** with increased visibility and layered z-index ensure administrative feedback is never missed.
 - **Specific Validations**: Clear error messaging (e.g., *"Already registered user sign in instead"*) for better user onboarding.
 
 ## 🔄 Results & Synchronization
