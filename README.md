@@ -62,4 +62,4 @@ npm run dev
 - **Tech Stack**: React, Vite, Framer Motion, Axios, jsPDF.
 
 ---
-
+*Self-evolving intelligence for modern education.*
