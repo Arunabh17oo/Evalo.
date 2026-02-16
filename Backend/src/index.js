@@ -1615,8 +1615,25 @@ app.get("/api/admin/users", authRequired, requireRoles("admin", "teacher"), (req
 });
 
 app.patch("/api/admin/users/:userId/role", authRequired, requireRoles("admin"), async (req, res) => {
-  const user = users.get(req.params.userId);
+  let user = users.get(req.params.userId);
   const role = String(req.body?.role || "").toLowerCase();
+
+  if (!user && dbReady) {
+    const userDoc = await UserModel.findById(req.params.userId).lean();
+    if (userDoc) {
+      user = {
+        id: userDoc._id,
+        name: userDoc.name,
+        email: userDoc.email,
+        passwordHash: userDoc.passwordHash,
+        role: userDoc.role,
+        isApproved: Boolean(userDoc.isApproved),
+        createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
+      };
+      users.set(user.id, user);
+      usersByEmail.set(user.email, user.id);
+    }
+  }
 
   if (!user) return res.status(404).json({ error: "User not found." });
   if (user.role === "admin") return res.status(403).json({ error: "Cannot demote an admin." });
@@ -1639,7 +1656,24 @@ app.patch("/api/admin/users/:userId/role", authRequired, requireRoles("admin"), 
 });
 
 app.patch("/api/admin/users/:userId/approve", authRequired, requireRoles("admin"), async (req, res) => {
-  const user = users.get(req.params.userId);
+  let user = users.get(req.params.userId);
+  if (!user && dbReady) {
+    const userDoc = await UserModel.findById(req.params.userId).lean();
+    if (userDoc) {
+      user = {
+        id: userDoc._id,
+        name: userDoc.name,
+        email: userDoc.email,
+        passwordHash: userDoc.passwordHash,
+        role: userDoc.role,
+        isApproved: Boolean(userDoc.isApproved),
+        createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
+      };
+      users.set(user.id, user); // Add to cache
+      usersByEmail.set(user.email, user.id);
+    }
+  }
+
   if (!user) return res.status(404).json({ error: "User not found." });
   if (user.role === "admin") return res.status(403).json({ error: "Admin approval status is fixed." });
 
@@ -1684,7 +1718,24 @@ app.post("/api/admin/users/add", authRequired, requireRoles("admin"), async (req
 });
 
 app.delete("/api/admin/users/:userId", authRequired, requireRoles("admin"), async (req, res) => {
-  const user = users.get(req.params.userId);
+  const { userId } = req.params;
+  let user = users.get(userId);
+
+  if (!user && dbReady) {
+    const userDoc = await UserModel.findById(userId).lean();
+    if (userDoc) {
+      user = {
+        id: userDoc._id,
+        name: userDoc.name,
+        email: userDoc.email,
+        passwordHash: userDoc.passwordHash,
+        role: userDoc.role,
+        isApproved: Boolean(userDoc.isApproved),
+        createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
+      };
+    }
+  }
+
   if (!user) return res.status(404).json({ error: "User not found." });
   if (user.role === "admin") return res.status(403).json({ error: "Admins cannot be deleted." });
 

@@ -1807,7 +1807,7 @@ export default function App() {
             ) : (
               <>
                 <button className="btn-soft" onClick={() => setActivePage("home")}>Home</button>
-                {(isTeacher || isAdmin) ? (
+                {(isTeacher || isAdmin) && user.isApproved ? (
                   <button className="btn-soft" onClick={() => setActivePage("admin")}>
                     {isAdmin ? "Admin Control" : "Teacher Hub"}
                   </button>
