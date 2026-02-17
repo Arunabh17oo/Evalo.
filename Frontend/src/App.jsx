@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import Footer from "./components/Footer";
+
 
 const AnimatedScene = lazy(() => import("./components/AnimatedScene"));
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5050/api";
@@ -596,6 +598,20 @@ export default function App() {
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminCanEditRoles, setAdminCanEditRoles] = useState(false);
   const [adminTests, setAdminTests] = useState([]);
+
+  const navigateTo = (page, targetId) => {
+    setActivePage(page);
+    if (targetId) {
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 100);
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
   const [adminTestsBusy, setAdminTestsBusy] = useState(false);
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addUserForm, setAddUserForm] = useState({ name: "", email: "", password: "", role: "student" });
@@ -1829,7 +1845,7 @@ export default function App() {
         ) : (
           <>
             {activePage === "admin" ? (
-              <section className="card big-card">
+              <section id="admin-section" className="card big-card">
                 <h2>Admin Control Center</h2>
                 <p className="subtitle">
                   {isAdmin
@@ -2231,7 +2247,7 @@ export default function App() {
 
 
                 {user?.role === "teacher" ? (
-                  <section className="card split-card">
+                  <section id="teacher-panel" className="card split-card">
                     <div>
                       <h2>Teacher Panel</h2>
                       <form className="form-grid" onSubmit={uploadBooks}>
@@ -2903,7 +2919,7 @@ export default function App() {
                 }
 
                 {user?.role === "student" ? (
-                  <section className="card split-card">
+                  <section id="student-join" className="card split-card">
                     <div>
                       <h2>Student Panel</h2>
                       {!isStudent ? (
@@ -3388,6 +3404,7 @@ export default function App() {
         setForm={setAddUserForm}
         error={addUserError}
       />
+      <Footer user={user} activePage={activePage} navigateTo={navigateTo} setAuthOpen={setAuthOpen} />
     </div>
   );
 }
