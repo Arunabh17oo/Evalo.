@@ -429,7 +429,7 @@ function PendingApprovalView({ user, onRefresh, busy }) {
         </p>
         <div className="row gap-top" style={{ justifyContent: 'center' }}>
           <button className="cta-button" onClick={onRefresh} disabled={busy}>
-            {busy ? "Checking..." : "Check Approval Status"}
+            <span>{busy ? "Checking..." : "Check Approval Status"}</span>
           </button>
         </div>
         <div className="row gap-top" style={{ justifyContent: 'center', gap: '1rem', opacity: 0.5 }}>
@@ -1803,7 +1803,7 @@ export default function App() {
           <Logo5D />
           <div className="nav-actions">
             {!user ? (
-              <button className="cta-button" onClick={() => setAuthOpen(true)}>Login / Sign Up</button>
+              <button className="cta-button" onClick={() => setAuthOpen(true)}><span>Login / Sign Up</span></button>
             ) : (
               <>
                 <button className="btn-soft" onClick={() => setActivePage("home")}>Home</button>

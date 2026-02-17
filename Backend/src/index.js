@@ -2976,6 +2976,7 @@ async function bootstrap() {
           email: d.email,
           passwordHash: d.passwordHash,
           role: d.role,
+          isApproved: Boolean(d.isApproved),
           createdAt: d.createdAt?.toISOString?.() || new Date(d.createdAt).toISOString()
         };
         users.set(u.id, u);

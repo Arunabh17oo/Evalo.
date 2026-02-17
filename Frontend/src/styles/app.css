@@ -309,31 +309,55 @@ button {
   color: #021225;
   background: linear-gradient(90deg, #63f2de 0%, #7ec5ff 55%, #f5c67b 100%);
   cursor: pointer;
-  transition: transform 0.16s ease;
+  transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  user-select: none;
 }
 
 button:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+button:active {
+  transform: scale(0.96) translateY(0);
 }
 
 button:disabled {
-  opacity: 0.75;
+  opacity: 0.65;
   cursor: not-allowed;
-  transform: none;
+  transform: none !important;
+  filter: grayscale(0.5);
 }
 
 .btn-soft {
-  background: rgba(154, 205, 255, 0.16);
+  background: rgba(154, 205, 255, 0.1);
   color: #daf0ff;
-  border: 1px solid rgba(154, 205, 255, 0.35);
+  border: 1px solid rgba(154, 205, 255, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.btn-soft:hover {
+  background: rgba(154, 205, 255, 0.2);
+  border-color: rgba(154, 205, 255, 0.5);
+  box-shadow: 0 8px 24px rgba(120, 180, 255, 0.2);
+}
+
+.btn-soft:hover[onClick*="Delete"],
+.btn-soft:hover[onClick*="delete"],
+.btn-soft:hover[onClick*="Reset"],
+.btn-soft:hover[onClick*="clear"] {
+  border-color: rgba(255, 100, 100, 0.5);
+  background: rgba(255, 100, 100, 0.1);
+  color: #ffbaba;
 }
 
 .btn-small {
-  padding: 0.58rem 0.9rem;
-  border-radius: 12px;
+  padding: 0.52rem 0.85rem;
+  border-radius: 11px;
   font-weight: 800;
-  font-size: 0.95rem;
-  min-height: 40px;
+  font-size: 0.92rem;
+  min-height: 38px;
 }
 
 .role-badge {
@@ -625,7 +649,7 @@ td {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 200;
   display: grid;
   place-items: center;
   background: rgba(3, 8, 18, 0.55);
@@ -999,27 +1023,45 @@ td {
   color: #021225;
   background: linear-gradient(135deg, #63f2de 0%, #7ec5ff 50%, #f5c67b 100%);
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 24px rgba(99, 242, 222, 0.35);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 10px 30px rgba(99, 242, 222, 0.3);
   overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
 }
 
 .cta-button::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, #7ec5ff 0%, #f5c67b 50%, #63f2de 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: skewX(-25deg);
+  transition: none;
+  pointer-events: none;
 }
 
 .cta-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(99, 242, 222, 0.5);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(99, 242, 222, 0.45);
 }
 
 .cta-button:hover::before {
-  opacity: 1;
+  animation: shimmer-glare 0.8s forwards;
+}
+
+@keyframes shimmer-glare {
+  0% {
+    left: -100%;
+  }
+
+  100% {
+    left: 150%;
+  }
 }
 
 .cta-button span {
