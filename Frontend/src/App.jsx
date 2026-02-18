@@ -1813,7 +1813,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <Suspense fallback={<div className="scene-wrap scene-fallback" />}>
-        <AnimatedScene />
+        <AnimatedScene role={user?.role || "guest"} />
       </Suspense>
 
       <div className="toast-stack" aria-live="polite" aria-relevant="additions removals">
