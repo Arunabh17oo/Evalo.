@@ -2,7 +2,7 @@
 
 Evalo is a premium, state-of-the-art AI-powered examination platform. It leverages advanced Large Language Models and local NLP fallbacks to provide precise subjective and objective assessments, coupled with a high-integrity proctoring ecosystem.
 
-![Evalo Logo](file:///Users/smacair/Downloads/My%20Projects/Evalo/Frontend/public/evalo-logo.png)
+![Evalo Logo](Frontend/public/evalo-logo.png)
 
 ## ✨ Core Pillars
 
@@ -10,33 +10,34 @@ Evalo is a premium, state-of-the-art AI-powered examination platform. It leverag
 Evalo doesn't just grade; it understands.
 - **Hybrid Evaluation**: Utilizes **OpenAI** for high-precision contextual reasoning and **Local NLP** (Cosine Similarity, Jaccard Index, Keyword Coverage) for robust, instant grading.
 - **Dynamic Difficulty**: The system automatically adjusts question levels (Beginner → Intermediate → Advanced) based on student performance in real-time.
-- **Subjective & Objective**: Support for MCQs, long-form subjective answers, and mixed-mode examinations.
+- **Multi-Format Support**: Seamless handling of MCQs, long-form subjective answers, and mixed-mode examinations.
 
 ### 🛡️ High-Integrity Proctoring
 Maintain absolute exam integrity with our multi-layered security suite:
 - **Live Risk Scoring**: Real-time behavior analysis that calculates a "Risk Score" based on user actions.
 - **Event Logging**: Detailed tracking of tab switches, window blurs, and unauthorized attempts.
-- **Fullscreen Enforcement**: Mandatory fullscreen mode to prevent external distractions or resource access.
+- **Fullscreen Enforcement**: Mandatory fullscreen mode to prevent external distractions.
 - **Global Security Controls**: Admins can toggle sensitive features like **Copy-Paste** across the entire platform instantly.
 
 ### 💎 Premium User Experience
-Built with a "Design-First" philosophy:
-- **Glassmorphic UI**: A breathtaking interface featuring 5D-simulated logos, smooth Framer Motion animations, and a **Premium System Dashboard** footer.
-- **Clean Feedback**: Optimized notification system with intelligent toast deduplication for a focused user experience.
-- **Role-Centric Hubs**:
-  - **Admin Hub**: Global system auditing, user lifecycle management, and security toggles.
-  - **Teacher Hub**: RAG-based book indexing, automated test generation, and manual score overrides.
-  - **Student Dashboard**: Real-time score synchronization, intuitive exam interfaces, and detailed performance reports.
+Built with a "Design-First" philosophy, featuring a fully immersive environment:
+- **Role-Based 3D Backgrounds**:
+  - 🌌 **Guest ("The Void")**: A minimalist, deep-space environment for calm exploration.
+  - 🔮 **Student ("The Nexus")**: A high-energy scene with floating crystals and dynamic rings to stimulate focus.
+  - 🏛️ **Teacher ("The Architecture")**: A structured, analytical grid with golden accents, representing control and oversight.
+- **Glassmorphic UI**: Breathtaking interface with real-time blur effects, smooth gradients, and **Framer Motion** animations.
+- **Premium Typography**: Typographically verified with the **Outfit** font family for a modern, clean aesthetic.
+- **Smart Notifications**: Intelligent toast system with deduplication and animated entry/exits.
 
-## 📊 Analytics & Reporting
-- **Question-wise Analysis**: Every answer received deep AI feedback, helping students understand *why* they scored what they did.
+### 📊 Analytics & Reporting
+- **Question-wise Analysis**: Every answer receives deep AI feedback, helping students understand *why* they scored what they did.
 - **PDF Generation**: Professional, 3-column performance reports (Student Info, AI Score, Teacher Score) generated via jsPDF.
 - **Teacher Insights**: Comprehensive analytics including average scores, completion rates, and risk distribution charts.
 
 ## 🛠️ Technical Architecture
 
 ### Tech Stack
-- **Frontend**: React 18, Vite, Framer Motion, Three.js (for the 5D logo), jsPDF.
+- **Frontend**: React 18, Vite, Framer Motion, Three.js (`@react-three/fiber`), jsPDF.
 - **Backend**: Node.js, Express, Multer (File Processing), Natural (NLP).
 - **Persistence**: Dual-support for **MongoDB** (Production-ready) or **Local JSON Storage**.
 - **Containerization**: Fully **Dockerized** for seamless development and deployment.
