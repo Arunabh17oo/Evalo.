@@ -21,7 +21,8 @@ Maintain absolute exam integrity with our multi-layered security suite:
 
 ### 💎 Premium User Experience
 Built with a "Design-First" philosophy:
-- **Glassmorphic UI**: A breathtaking interface featuring 5D-simulated logos and smooth Framer Motion animations.
+- **Glassmorphic UI**: A breathtaking interface featuring 5D-simulated logos, smooth Framer Motion animations, and a **Premium System Dashboard** footer.
+- **Clean Feedback**: Optimized notification system with intelligent toast deduplication for a focused user experience.
 - **Role-Centric Hubs**:
   - **Admin Hub**: Global system auditing, user lifecycle management, and security toggles.
   - **Teacher Hub**: RAG-based book indexing, automated test generation, and manual score overrides.
@@ -37,10 +38,25 @@ Built with a "Design-First" philosophy:
 ### Tech Stack
 - **Frontend**: React 18, Vite, Framer Motion, Three.js (for the 5D logo), jsPDF.
 - **Backend**: Node.js, Express, Multer (File Processing), Natural (NLP).
-- **Persistence**: Dual-support for **MongoDB Atlas** or **Local JSON Storage** (for zero-config setups).
+- **Persistence**: Dual-support for **MongoDB** (Production-ready) or **Local JSON Storage**.
+- **Containerization**: Fully **Dockerized** for seamless development and deployment.
 - **AI**: OpenAI API integration for advanced subjective analysis.
 
-### Setup & Installation
+## 🚀 Setup & Installation
+
+### Option 1: Docker (Preferred - Zero Configuration)
+Run the entire stack (Frontend, Backend, and MongoDB) with a single command:
+
+1. Ensure **Docker Desktop** is running.
+2. In the project root, run:
+   ```bash
+   docker-compose up --build
+   ```
+3. Access the app:
+   - **Frontend**: `http://localhost:5173`
+   - **Backend API**: `http://localhost:5050/api`
+
+### Option 2: Manual Setup
 
 #### 📂 Repository Structure
 ```
@@ -50,20 +66,19 @@ Evalo/
 ```
 
 #### 🚀 Backend Setup
-1. Navigate to the backend directory: `cd Backend`
-2. Install dependencies: `npm install`
-3. Configure your `.env` (use `.env.example` as a template).
-4. Start the dev server: `npm run dev` (Default port: `5050`)
+1. Navigate to: `cd Backend`
+2. Install: `npm install`
+3. Configure `.env` (see `.env.example`).
+4. Start: `npm run dev` (Port: `5050`)
 
 #### 💻 Frontend Setup
-1. Navigate to the frontend directory: `cd Frontend`
-2. Install dependencies: `npm install`
-3. Start the application: `npm run dev` (Default URL: `http://localhost:5173`)
+1. Navigate to: `cd Frontend`
+2. Install: `npm install`
+3. Start: `npm run dev` (URL: `http://localhost:5173`)
 
 ---
 
 > [!TIP]
 > **Default Admin Credentials**: `admin@evalo.ai` / `admin123`
-
 
 *Self-evolving intelligence for modern education.*

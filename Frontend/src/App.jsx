@@ -1,9 +1,15 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Footer from "./components/Footer";
+import CommandPalette from "./components/CommandPalette";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
+import KnowledgeOrbit from "./components/KnowledgeOrbit";
+import SoundscapeEngine from "./components/SoundscapeEngine";
+
 
 
 const AnimatedScene = lazy(() => import("./components/AnimatedScene"));
@@ -266,7 +272,7 @@ function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm,
       >
         <div className="modal-header-with-logo">
           <img src="/evalo-logo.png" alt="Evalo Logo" className="modal-logo" />
-          <h3>{mode === "login" ? "Welcome Back to Evalo" : "Create Evalo Account"}</h3>
+          <h3>Welcome to Evalo</h3>
         </div>
         {error ? <p className="error">{error}</p> : null}
 
@@ -464,57 +470,71 @@ function AnalyticsModal({ open, onClose, data }) {
             <p className="hint">No student attempts yet for this test.</p>
           </div>
         ) : (
-          <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Score</label>
-              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageScore} / {data.maxMarks}</div>
-              <div className="mini-progress-bar" style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
-                <div
-                  className="mini-progress-fill"
-                  style={{ width: `${(data.averageScore / data.maxMarks) * 100}%`, height: "100%", background: "#3b82f6" }}
-                />
+          <>
+            <div className="analytics-visual" style={{ height: "300px", background: "rgba(0,0,0,0.2)", borderRadius: "16px", marginBottom: "1.5rem", overflow: "hidden", position: "relative" }}>
+              <Canvas camera={{ position: [0, 0, 8] }}>
+                <ambientLight intensity={0.5} />
+                <pointLight position={[10, 10, 10]} intensity={1} />
+                <KnowledgeOrbit data={data} />
+                <OrbitControls enableZoom={false} />
+              </Canvas>
+              <div style={{ position: "absolute", bottom: "10px", right: "15px", pointerEvents: "none", fontSize: "0.7rem", opacity: 0.5 }}>
+                Interactive 3D Knowledge Map
               </div>
             </div>
-
-            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Highest Score</label>
-              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.highestScore}</div>
-            </div>
-
-            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Completion Rate</label>
-              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.completionRate}%</div>
-              <p className="hint" style={{ fontSize: "0.75rem" }}>{data.completedCount} / {data.totalStudents} students</p>
-            </div>
-
-            <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-              <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Proctor Risk</label>
-              <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageRisk}%</div>
-              <p className="hint" style={{ fontSize: "0.75rem" }}>Risk: {data.averageRisk < 30 ? "Low" : data.averageRisk < 55 ? "Medium" : "High"}</p>
-            </div>
-
-            <div className="risk-dist-section" style={{ gridColumn: "1 / -1", marginTop: "1rem" }}>
-              <h4 style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>🛡️ Proctoring Risk Distribution</h4>
-              <div className="risk-bar-chart" style={{ display: "flex", height: "12px", borderRadius: "6px", overflow: "hidden", background: "rgba(255,255,255,0.1)" }}>
-                <div className="risk-segment" style={{ flex: data.riskDistribution?.low || 0, background: "#10b981" }} title="Low Risk"></div>
-                <div className="risk-segment" style={{ flex: data.riskDistribution?.medium || 0, background: "#f59e0b" }} title="Medium Risk"></div>
-                <div className="risk-segment" style={{ flex: data.riskDistribution?.high || 0, background: "#ef4444" }} title="High Risk"></div>
-                <div className="risk-segment" style={{ flex: data.riskDistribution?.critical || 0, background: "#7f1d1d" }} title="Critical Risk"></div>
+            <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Score</label>
+                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageScore} / {data.maxMarks}</div>
+                <div className="mini-progress-bar" style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+                  <div
+                    className="mini-progress-fill"
+                    style={{ width: `${(data.averageScore / data.maxMarks) * 100}%`, height: "100%", background: "#3b82f6" }}
+                  />
+                </div>
               </div>
-              <div className="risk-legend" style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.7rem", opacity: 0.8 }}>
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", display: "inline-block" }}></i> Low</span>
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#f59e0b", display: "inline-block" }}></i> Med</span>
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444", display: "inline-block" }}></i> High</span>
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#7f1d1d", display: "inline-block" }}></i> Crit</span>
+
+              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Highest Score</label>
+                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.highestScore}</div>
+              </div>
+
+              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Completion Rate</label>
+                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.completionRate}%</div>
+                <p className="hint" style={{ fontSize: "0.75rem" }}>{data.completedCount} / {data.totalStudents} students</p>
+              </div>
+
+              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
+                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Proctor Risk</label>
+                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageRisk}%</div>
+                <p className="hint" style={{ fontSize: "0.75rem" }}>Risk: {data.averageRisk < 30 ? "Low" : data.averageRisk < 55 ? "Medium" : "High"}</p>
+              </div>
+
+              <div className="risk-dist-section" style={{ gridColumn: "1 / -1", marginTop: "1rem" }}>
+                <h4 style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>🛡️ Proctoring Risk Distribution</h4>
+                <div className="risk-bar-chart" style={{ display: "flex", height: "12px", borderRadius: "6px", overflow: "hidden", background: "rgba(255,255,255,0.1)" }}>
+                  <div className="risk-segment" style={{ flex: data.riskDistribution?.low || 0, background: "#10b981" }} title="Low Risk"></div>
+                  <div className="risk-segment" style={{ flex: data.riskDistribution?.medium || 0, background: "#f59e0b" }} title="Medium Risk"></div>
+                  <div className="risk-segment" style={{ flex: data.riskDistribution?.high || 0, background: "#ef4444" }} title="High Risk"></div>
+                  <div className="risk-segment" style={{ flex: data.riskDistribution?.critical || 0, background: "#7f1d1d" }} title="Critical Risk"></div>
+                </div>
+                <div className="risk-legend" style={{ display: "flex", gap: "1rem", marginTop: "0.5rem", fontSize: "0.7rem", opacity: 0.8 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", display: "inline-block" }}></i> Low</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#f59e0b", display: "inline-block" }}></i> Med</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444", display: "inline-block" }}></i> High</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><i style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#7f1d1d", display: "inline-block" }}></i> Crit</span>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
 
         <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
           <button className="btn-soft" onClick={onClose}>Close</button>
         </div>
       </motion.div>
+
     </div>
   );
 }
@@ -598,10 +618,14 @@ export default function App() {
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminCanEditRoles, setAdminCanEditRoles] = useState(false);
   const [adminTests, setAdminTests] = useState([]);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
 
   const navigateTo = (page, targetId) => {
     setActivePage(page);
     if (targetId) {
+      // Force scroll to top first to reset position if we were at the footer
+      window.scrollTo(0, 0);
       setTimeout(() => {
         const el = document.getElementById(targetId);
         if (el) {
@@ -613,6 +637,25 @@ export default function App() {
     }
   };
   const [adminTestsBusy, setAdminTestsBusy] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const cmdkContext = {
+    user,
+    navigateTo,
+    logout,
+    toggleCopyPaste: () => updateGlobalSecurity(!globalSettings.allowCopyPaste),
+  };
+
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addUserForm, setAddUserForm] = useState({ name: "", email: "", password: "", role: "student" });
   const [addUserError, setAddUserError] = useState("");
@@ -764,7 +807,13 @@ export default function App() {
 
   function pushToast(message, tone = "info") {
     const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    setToasts((prev) => [...prev, { id, message, tone }].slice(-5));
+
+    setToasts((prev) => {
+      // Prevent duplicate messages in the same stack
+      if (prev.some((t) => t.message === message)) return prev;
+      return [...prev, { id, message, tone }].slice(-5);
+    });
+
     window.setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3600);
@@ -1025,7 +1074,6 @@ export default function App() {
     } catch (err) {
       const msg = appError(err, "Unable to submit review.");
       setError(msg);
-      pushToast(msg, "error");
     } finally {
       setAttemptBusy(false);
     }
@@ -1074,7 +1122,6 @@ export default function App() {
       pushToast("Tests refreshed.", "success");
     } catch (err) {
       setError(appError(err, "Unable to load tests."));
-      pushToast(appError(err, "Unable to load tests."), "error");
     } finally {
       setAdminTestsBusy(false);
     }
@@ -1093,7 +1140,6 @@ export default function App() {
     } catch (err) {
       const msg = appError(err, "Unable to delete test.");
       setError(msg);
-      pushToast(msg, "error");
     } finally {
       setAdminTestsBusy(false);
     }
@@ -1127,7 +1173,6 @@ export default function App() {
     } catch (err) {
       const msg = appError(err, "Reset failed.");
       setError(msg);
-      pushToast(msg, "error");
     } finally {
       setAdminTestsBusy(false);
     }
@@ -1772,19 +1817,28 @@ export default function App() {
       </Suspense>
 
       <div className="toast-stack" aria-live="polite" aria-relevant="additions removals">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.tone || "info"}`}>
-            <span>{t.message}</span>
-            <button
-              type="button"
-              className="toast-x"
-              aria-label="Dismiss notification"
-              onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              className={`toast ${t.tone || "info"}`}
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.9 }}
+              layout
             >
-              ×
-            </button>
-          </div>
-        ))}
+              <span>{t.message}</span>
+              <button
+                type="button"
+                className="toast-x"
+                aria-label="Dismiss notification"
+                onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+              >
+                ×
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* Analytics Modal */}
@@ -3163,6 +3217,7 @@ export default function App() {
                 {
                   question ? (
                     <section className="card quiz-card">
+                      <SoundscapeEngine isActive={examActive} />
                       <div className="question-head">
                         <span>Test: {joinedTest?.title || "Evalo Test"}</span>
                         <span className="pill">Q{question.number}/{question.total}</span>
@@ -3395,6 +3450,11 @@ export default function App() {
           </>
         )}
       </main>
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        context={cmdkContext}
+      />
       <AddUserModal
         open={addUserOpen}
         onClose={() => setAddUserOpen(false)}
