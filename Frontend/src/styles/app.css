@@ -19,6 +19,43 @@
   background: var(--bg-dark);
 }
 
+body.light-mode {
+  --bg-dark: #f0f4f8;
+  --surface: #ffffff;
+  --text-light: #1e293b;
+  --text-dim: #64748b;
+  background: radial-gradient(circle at 20% 15%, #ffffff 0%, #e2e8f0 40%, #cbd5e1 100%);
+  color: var(--text-light);
+}
+
+body.light-mode .card,
+body.light-mode .profile-header,
+body.light-mode .settings-section,
+body.light-mode .stat-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: var(--text-light);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode h1,
+body.light-mode h2,
+body.light-mode h3,
+body.light-mode p,
+body.light-mode label,
+body.light-mode span {
+  color: var(--text-light) !important;
+}
+
+body.light-mode .btn-outline {
+  border-color: var(--text-dim);
+  color: var(--text-light);
+}
+
+body.light-mode .btn-outline:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 /* Premium Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -197,8 +234,10 @@ body {
 .scene-wrap {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   opacity: 0.75;
+  pointer-events: none;
+  /* Ensure clicks pass through */
 }
 
 .scene-fallback {
@@ -207,7 +246,7 @@ body {
 
 .topbar {
   position: relative;
-  z-index: 3;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -230,7 +269,7 @@ body {
 
 .main-grid {
   position: relative;
-  z-index: 3;
+  z-index: 10;
   width: min(1100px, 94%);
   margin: 0 auto;
   display: grid;
@@ -240,12 +279,13 @@ body {
 .card {
   position: relative;
   border: 1px solid rgba(153, 201, 255, 0.24);
-  background: linear-gradient(160deg, rgba(11, 30, 52, 0.44) 0%, rgba(10, 24, 41, 0.34) 100%);
+  /* Make card background nearly opaque (95%) to block 3D scene from bleeding through */
+  background: linear-gradient(160deg, rgba(11, 30, 52, 0.95) 0%, rgba(10, 24, 41, 0.95) 100%);
   border-radius: 24px;
   padding: clamp(1rem, 2vw, 1.6rem);
-  backdrop-filter: blur(20px) saturate(125%);
-  -webkit-backdrop-filter: blur(20px) saturate(125%);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+  /* Ensure cards sit above any potential low-z elements */
 }
 
 .card h1,

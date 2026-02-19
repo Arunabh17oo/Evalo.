@@ -597,6 +597,9 @@ function ProctorLogModal({ open, onClose, logs }) {
   );
 }
 
+import VoiceAssistant from "./components/VoiceAssistant";
+import ProfilePage from "./components/ProfilePage";
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || "");
   const [user, setUser] = useState(null);
@@ -608,6 +611,21 @@ export default function App() {
   const [globalSettings, setGlobalSettings] = useState({ allowCopyPaste: false });
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+
+  // Theme State
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('evalo_theme') !== 'light';
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.remove('light-mode');
+      localStorage.setItem('evalo_theme', 'dark');
+    } else {
+      document.body.classList.add('light-mode');
+      localStorage.setItem('evalo_theme', 'light');
+    }
+  }, [darkMode]);
 
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
@@ -1882,7 +1900,14 @@ export default function App() {
                     {isAdmin ? "Admin Control" : "Teacher Hub"}
                   </button>
                 ) : null}
-                <span className="role-badge">{user.name} ({user.role})</span>
+                <span
+                  className="role-badge"
+                  onClick={() => setActivePage("profile")}
+                  style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                  title="Go to Profile"
+                >
+                  {user.name} ({user.role})
+                </span>
                 <button onClick={logout}>Logout</button>
               </>
             )}
@@ -1898,7 +1923,15 @@ export default function App() {
           <PendingApprovalView user={user} onRefresh={refreshMyProfile} busy={busy} />
         ) : (
           <>
-            {activePage === "admin" ? (
+            {activePage === "profile" ? (
+              <ProfilePage
+                user={user}
+                onLogout={logout}
+                pushToast={pushToast}
+                darkMode={darkMode}
+                setDarkMode={setDarkMode}
+              />
+            ) : activePage === "admin" ? (
               <section id="admin-section" className="card big-card">
                 <h2>Admin Control Center</h2>
                 <p className="subtitle">
@@ -3449,6 +3482,7 @@ export default function App() {
             )}
           </>
         )}
+
       </main>
       <CommandPalette
         isOpen={isCommandPaletteOpen}
@@ -3465,6 +3499,7 @@ export default function App() {
         error={addUserError}
       />
       <Footer user={user} activePage={activePage} navigateTo={navigateTo} setAuthOpen={setAuthOpen} />
+      <VoiceAssistant context={cmdkContext} onOpen={() => setIsCommandPaletteOpen(true)} />
     </div>
   );
 }

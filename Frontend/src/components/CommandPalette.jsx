@@ -10,12 +10,15 @@ const COMMANDS = [
     { id: 'upload-books', title: 'Upload/Index Books', icon: '📚', section: 'Teacher Actions', action: (ctx) => ctx.navigateTo('home'), role: 'teacher' },
     { id: 'logout', title: 'Logout', icon: '🚪', section: 'Account', action: (ctx) => ctx.logout() },
     { id: 'toggle-copy', title: 'Toggle Global Copy-Paste', icon: '🔒', section: 'Admin Actions', action: (ctx) => ctx.toggleCopyPaste(), role: 'admin' },
+    { id: 'profile', title: 'My Profile', icon: '👤', section: 'Account', action: (ctx) => ctx.navigateTo('profile') },
 ];
 
 export default function CommandPalette({ isOpen, onClose, context }) {
     const [query, setQuery] = useState('');
     const [activeIndex, setActiveIndex] = useState(0);
+    const [isListening, setIsListening] = useState(false);
     const inputRef = useRef(null);
+    const recognitionRef = useRef(null);
 
     const filteredCommands = COMMANDS.filter(cmd => {
         const matchesQuery = cmd.title.toLowerCase().includes(query.toLowerCase());
@@ -27,9 +30,62 @@ export default function CommandPalette({ isOpen, onClose, context }) {
         if (isOpen) {
             setQuery('');
             setActiveIndex(0);
+            setIsListening(false);
             setTimeout(() => inputRef.current?.focus(), 50);
+        } else {
+            stopListening();
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        // Initialize Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = false;
+            recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'en-US';
+
+            recognitionRef.current.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                setQuery(transcript);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                setIsListening(false);
+            };
+
+            recognitionRef.current.onend = () => {
+                setIsListening(false);
+            };
+        }
+    }, []);
+
+    const toggleListening = () => {
+        if (isListening) {
+            stopListening();
+        } else {
+            startListening();
+        }
+    };
+
+    const startListening = () => {
+        if (recognitionRef.current) {
+            setIsListening(true);
+            recognitionRef.current.start();
+        } else {
+            alert("Voice recognition is not supported in this browser.");
+        }
+    };
+
+    const stopListening = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
+    };
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -72,10 +128,17 @@ export default function CommandPalette({ isOpen, onClose, context }) {
                             <input
                                 ref={inputRef}
                                 className="cmdk-input"
-                                placeholder="Type a command or search..."
+                                placeholder={isListening ? "Listening..." : "Type a command or search..."}
                                 value={query}
                                 onChange={e => setQuery(e.target.value)}
                             />
+                            <button
+                                className={`cmdk-mic-btn ${isListening ? 'listening' : ''}`}
+                                onClick={toggleListening}
+                                title="Voice Command"
+                            >
+                                {isListening ? '🔴' : '🎤'}
+                            </button>
                             <div className="cmdk-kbd">ESC</div>
                         </div>
 
