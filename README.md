@@ -12,12 +12,19 @@ Evalo doesn't just grade; it understands.
 - **Dynamic Difficulty**: The system automatically adjusts question levels (Beginner → Intermediate → Advanced) based on student performance in real-time.
 - **Multi-Format Support**: Seamless handling of MCQs, long-form subjective answers, and mixed-mode examinations.
 
-### 🛡️ High-Integrity Proctoring
+### 🛡️ High-Integrity Proctoring & Cyber Security
 Maintain absolute exam integrity with our multi-layered security suite:
 - **Live Risk Scoring**: Real-time behavior analysis that calculates a "Risk Score" based on user actions.
 - **Event Logging**: Detailed tracking of tab switches, window blurs, and unauthorized attempts.
 - **Fullscreen Enforcement**: Mandatory fullscreen mode to prevent external distractions.
 - **Global Security Controls**: Admins can toggle sensitive features like **Copy-Paste** across the entire platform instantly.
+
+#### Advanced Security Infrastructure
+- **Dynamic Watermarking**: Anti-piracy overlays mapping to student credentials to deter screen capturing.
+- **Browser Fingerprinting**: Cryptographic hashing of device/browser properties to prevent mid-exam session hijacking.
+- **API Defense & Rate Limiting**: Protection against brute-force attacks and exam-submission spam using robust endpoint throttling.
+- **Strict Data Sanitization**: Deep NoSQLi and XSS prevention via strict input sanitization on all subjective answers and data layers.
+- **Container Security**: Non-root Docker execution and dependency scanning to mitigate infrastructure vulnerabilities.
 
 ### 💎 Premium User Experience
 Built with a "Design-First" philosophy, featuring a fully immersive environment:
@@ -81,6 +88,5 @@ Evalo/
 
 > [!TIP]
 > **Default Admin Credentials**: `admin@evalo.ai` / `admin123`
-
 
 *Self-evolving intelligence for modern education.*
