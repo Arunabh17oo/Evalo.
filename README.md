@@ -90,4 +90,3 @@ Evalo/
 > **Default Admin Credentials**: `admin@evalo.ai` / `admin123`
 
 
-*Self-evolving intelligence for modern education.*
