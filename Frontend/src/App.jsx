@@ -961,15 +961,17 @@ export default function App() {
 
   async function viewAttempt(quizIdToView) {
     if (!token) return;
+    setJoinedQuiz(null);
+    setExamResult(null);
     setAttemptBusy(true);
     try {
       const [quizRes, resultRes] = await Promise.all([
         axios.get(`${API_BASE}/quizzes/${quizIdToView}`, authConfig(token)),
         axios.get(`${API_BASE}/quiz/${quizIdToView}/result`, authConfig(token)).catch(() => ({ data: null }))
       ]);
-      const data = quizRes.data;
-      setSelectedAttemptDetail(data);
-      setSelectedAttemptResult(resultRes?.data || null);
+      setJoinedQuiz(quizRes.data);
+      setExamResult(resultRes.data);
+      setActivePage("home");
     } catch (err) {
       setError(appError(err, "Unable to load attempt."));
     } finally {

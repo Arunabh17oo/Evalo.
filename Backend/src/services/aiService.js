@@ -5,44 +5,53 @@ const openai = apiKey ? new OpenAI({ apiKey }) : null;
 
 /**
  * Evaluates a subjective student answer against a reference context using OpenAI.
- * @param {string} studentAnswer 
- * @param {string} context 
- * @param {number} pointsPossible 
+ * Uses a multi-criteria rubric (PASS - Proctor-Aware Semantic Scoring).
  */
-async function evaluateSubjectiveAnswer(studentAnswer, context, pointsPossible) {
+async function evaluateSubjectiveAnswer(studentAnswer, questionPrompt, referenceContext, pointsPossible) {
     if (!openai) {
         throw new Error("OpenAI API key missing. Please set OPENAI_API_KEY in .env");
     }
 
     const prompt = `
-    You are an expert evaluator for subjective technical questions.
-    Evaluate the student's answer based on the provided reference context.
-    
-    Context: "${context}"
-    Student Answer: "${studentAnswer}"
-    Total Points Possible: ${pointsPossible}
-    
-    Instructions:
-    1. Compare the student's answer with the context for accuracy, depth, and completeness.
-    2. Assign a fair score from 0 to ${pointsPossible}.
-    3. Provide concise, constructive feedback for the student (max 2 sentences).
-    4. Provide a confidence score (0-1) for your evaluation based on how clearly the context supports/refutes the answer.
-    5. Briefly explain your reasoning (justification).
-    
-    Return the response in JSON format:
+    You are a Senior Academic Evaluator specializing in technical assessments.
+    Your task is to provide a rigorous, fair, and evidence-based evaluation of a student's answer.
+
+    ### ASSESSMENT DATA
+    - **Question**: "${questionPrompt}"
+    - **Reference Answer (Context)**: "${referenceContext}"
+    - **Student Response**: "${studentAnswer}"
+    - **Maximum Points**: ${pointsPossible}
+
+    ### EVALUATION RUBRIC (0-100% scale per criteria)
+    1. **Factual Accuracy (Weight: 50%)**: How many of the core technical facts from the reference are present and correct?
+    2. **Completeness (Weight: 30%)**: Does the answer cover all parts of the question prompt?
+    3. **Clarity & Logic (Weight: 20%)**: Is the response well-structured and free of contradictions?
+
+    ### INSTRUCTIONS
+    1. **Strict Grading**: Do not award full marks for "vague" but "mostly correct" answers. Be precise.
+    2. **Deductive Reasoning**: Identify specific omissions or misconceptions.
+    3. **Chain of Thought**: Internalize the reference first, then contrast with the student answer.
+    4. **Confidence**: Ratio of how much of your final score is explicitly backed by the reference text.
+
+    ### OUTPUT FORMAT (JSON ONLY)
     {
-      "score": number,
-      "feedback": "string",
-      "confidence": number,
-      "reasoning": "string"
+      "score": number, (0 to ${pointsPossible})
+      "rubric": {
+        "accuracy": number, (0-100)
+        "completeness": number, (0-100)
+        "clarity": number (0-100)
+      },
+      "feedback": "string", (Constructive, max 25 words)
+      "reasoning": "string", (Strict evidence-based justification)
+      "confidence": number (0 to 1)
     }
-  `;
+    `;
 
     try {
         const response = await openai.chat.completions.create({
             model: process.env.OPENAI_MODEL || "gpt-4-turbo",
             messages: [
-                { role: "system", content: "You are a professional academic grader assistant." },
+                { role: "system", content: "You are a rigorous academic grading engine. You output ONLY valid JSON." },
                 { role: "user", content: prompt }
             ],
             response_format: { type: "json_object" }
@@ -55,7 +64,7 @@ async function evaluateSubjectiveAnswer(studentAnswer, context, pointsPossible) 
 
         return result;
     } catch (error) {
-        console.error("OpenAI Evaluation Error:", error);
+        console.error("PASS Evaluation Engine Error:", error);
         throw error;
     }
 }

@@ -958,7 +958,7 @@ async function authRequired(req, res, next) {
     const userDoc = await UserModel.findById(payload.uid).lean();
     if (userDoc) {
       user = {
-        id: userDoc._id,
+        id: String(userDoc._id),
         name: userDoc.name,
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
@@ -1167,7 +1167,20 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
 }
 
 function buildResult(quizSession) {
-  const scores = quizSession.responses.map((r) => r.percentage);
+  const marksPerQuestion = quizSession.marksPerQuestion ?? 100 / (quizSession.questionCount || 1);
+  const processedResponses = quizSession.responses.map((r) => {
+    // If marksAwarded is null but percentage exists, calculate it based on fallback marksPerQuestion
+    let marksAwarded = r.marksAwarded;
+    if (marksAwarded === null && r.percentage !== null) {
+      marksAwarded = Number(((r.percentage / 100) * marksPerQuestion).toFixed(2));
+    }
+    return {
+      ...r, // Keep all original properties
+      marksAwarded // Override or set marksAwarded
+    };
+  });
+
+  const scores = processedResponses.map((r) => r.percentage);
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
   const byDifficulty = {
     beginner: [],
@@ -1175,7 +1188,7 @@ function buildResult(quizSession) {
     advanced: []
   };
 
-  quizSession.responses.forEach((entry) => byDifficulty[entry.difficulty].push(entry.percentage));
+  processedResponses.forEach((entry) => byDifficulty[entry.difficulty].push(entry.percentage));
 
   const mean = (list) =>
     list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : null;
@@ -1311,14 +1324,14 @@ async function ensureQuizAccess(req, res) {
     return null;
   }
 
-  const isOwner = req.user.id === quizSession.studentId;
+  const isOwner = String(req.user.id) === String(quizSession.studentId);
   const isElevated = req.user.role === "admin";
   const isTeacher = req.user.role === "teacher";
 
   // Privacy Fix: If teacher, they must own the test associated with the quiz
   if (isTeacher && quizSession.testId) {
     const test = tests.get(quizSession.testId);
-    if (test && test.createdBy !== req.user.id) {
+    if (test && String(test.createdBy) !== String(req.user.id)) {
       res.status(403).json({ error: "Access denied. You do not own this test." });
       return null;
     }
@@ -1506,7 +1519,7 @@ app.post("/api/auth/login", async (req, res) => {
     const userDoc = await UserModel.findOne({ email: emailNorm }).lean();
     if (userDoc) {
       user = {
-        id: userDoc._id,
+        id: String(userDoc._id),
         name: userDoc.name,
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
@@ -1683,7 +1696,7 @@ app.patch("/api/admin/users/:userId/role", authRequired, requireRoles("admin"), 
     const userDoc = await UserModel.findById(req.params.userId).lean();
     if (userDoc) {
       user = {
-        id: userDoc._id,
+        id: String(userDoc._id),
         name: userDoc.name,
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
@@ -1722,7 +1735,7 @@ app.patch("/api/admin/users/:userId/approve", authRequired, requireRoles("admin"
     const userDoc = await UserModel.findById(req.params.userId).lean();
     if (userDoc) {
       user = {
-        id: userDoc._id,
+        id: String(userDoc._id),
         name: userDoc.name,
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
@@ -1786,7 +1799,7 @@ app.delete("/api/admin/users/:userId", authRequired, requireRoles("admin"), asyn
     const userDoc = await UserModel.findById(userId).lean();
     if (userDoc) {
       user = {
-        id: userDoc._id,
+        id: String(userDoc._id),
         name: userDoc.name,
         email: userDoc.email,
         passwordHash: userDoc.passwordHash,
@@ -2444,12 +2457,13 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     // Subjective AI-enhanced scoring
     try {
       if (process.env.OPENAI_API_KEY) {
-        const aiResult = await evaluateSubjectiveAnswer(answer, currentQuestion.reference, 100);
+        const aiResult = await evaluateSubjectiveAnswer(answer, currentQuestion.prompt, currentQuestion.reference, 100);
         baseEvaluation = {
           percentage: aiResult.score,
           feedback: aiResult.feedback,
           reasoning: aiResult.reasoning,
           confidence: aiResult.confidence,
+          rubric: aiResult.rubric,
           isAI: true
         };
       } else {
