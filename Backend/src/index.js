@@ -1069,7 +1069,7 @@ async function createBookSession(files, ownerId) {
 
 function createQuizSession({ bookSession, studentId, initialLevel, questionCount, testId, durationMinutes, topic, questionFormat, rollNo }) {
   const safeLevel = LEVEL_INDEX[initialLevel] !== undefined ? initialLevel : "intermediate";
-  const safeQuestionCount = Math.min(Math.max(Number(questionCount) || 8, 4), 20);
+  const safeQuestionCount = Math.min(Math.max(Number(questionCount) || 8, 1), 20);
 
   const flowOrdinal = (bookSession.flowCounter || 0) + 1;
   bookSession.flowCounter = flowOrdinal;
@@ -1131,8 +1131,8 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
     lastReviewEditedAt: null,
     teacherOverallMarks: null,
     teacherOverallRemark: null,
-    totalMarks: null,
-    marksPerQuestion: null,
+    totalMarks: 100,
+    marksPerQuestion: Number((100 / safeQuestionCount).toFixed(2)),
     topic: String(topic || "").trim() || null,
     questionFormat: format,
     proctor: {
@@ -1251,16 +1251,16 @@ function buildResult(quizSession) {
 
 function registerProctorEvent(quizSession, type, meta = {}) {
   const weights = {
-    tab_hidden: 14,
-    window_blur: 10,
-    fullscreen_exit: 18,
-    media_muted: 20,
-    copy_attempt: 8,
-    paste_attempt: 12,
-    context_menu: 6,
-    no_face: 16,
-    multiple_faces: 25,
-    suspicious_noise: 10
+    tab_hidden: 10,
+    window_blur: 6,
+    fullscreen_exit: 12,
+    media_muted: 14,
+    copy_attempt: 5,
+    paste_attempt: 8,
+    context_menu: 3,
+    no_face: 10,
+    multiple_faces: 18,
+    suspicious_noise: 7
   };
 
   const increase = weights[type] || 5;
@@ -1312,14 +1312,75 @@ async function ensureQuizAccess(req, res) {
   }
 
   const isOwner = req.user.id === quizSession.studentId;
-  const isElevated = req.user.role === "admin" || req.user.role === "teacher";
-  if (!isOwner && !isElevated) {
+  const isElevated = req.user.role === "admin";
+  const isTeacher = req.user.role === "teacher";
+
+  // Privacy Fix: If teacher, they must own the test associated with the quiz
+  if (isTeacher && quizSession.testId) {
+    const test = tests.get(quizSession.testId);
+    if (test && test.createdBy !== req.user.id) {
+      res.status(403).json({ error: "Access denied. You do not own this test." });
+      return null;
+    }
+  }
+
+  if (!isOwner && !isElevated && !isTeacher) {
     res.status(403).json({ error: "Quiz access denied." });
     return null;
   }
 
   return quizSession;
 }
+
+// DELETE Student History
+app.delete("/api/users/me/quizzes", authRequired, async (req, res) => {
+  try {
+    if (dbReady) {
+      await QuizSessionModel.deleteMany({ studentId: req.user.id });
+    }
+    // Clear from memory
+    for (const [id, session] of quizSessions.entries()) {
+      if (session.studentId === req.user.id) {
+        quizSessions.delete(id);
+      }
+    }
+    await logHistory(req.user.id, "history_cleared", {});
+    return res.json({ message: "Test history cleared successfully." });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to clear history." });
+  }
+});
+
+// DELETE Teacher Test
+app.delete("/api/tests/:testId", authRequired, requireRoles("teacher", "admin"), async (req, res) => {
+  const testId = req.params.testId;
+  const test = tests.get(testId);
+  if (!test) return res.status(404).json({ error: "Test not found." });
+
+  if (test.createdBy !== req.user.id && req.user.role !== "admin") {
+    return res.status(403).json({ error: "You cannot delete this test." });
+  }
+
+  try {
+    if (dbReady) {
+      await TestModel.deleteOne({ _id: testId });
+      // Also cleanup associated quiz sessions if they exist
+      await QuizSessionModel.deleteMany({ testId });
+    }
+    tests.delete(testId);
+    // Cleanup in-memory quizzes for this test
+    for (const [id, session] of quizSessions.entries()) {
+      if (session.testId === testId) {
+        quizSessions.delete(id);
+      }
+    }
+
+    await logHistory(req.user.id, "test_deleted", { testId });
+    return res.json({ message: "Test and associated data deleted." });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to delete test." });
+  }
+});
 
 function compactTestPayload(test) {
   return {
@@ -1981,7 +2042,7 @@ app.post("/api/tests", authRequired, requireRoles("teacher", "admin"), async (re
     180
   );
   const questions = Math.min(
-    Math.max(Number(questionCount) || EXAM_MODE_CONFIG[modeKey].questionCount, 4),
+    Math.max(Number(questionCount) || EXAM_MODE_CONFIG[modeKey].questionCount, 1),
     20
   );
   const total = Math.min(Math.max(Number(totalMarks) || 100, 10), 1000);
@@ -2100,7 +2161,7 @@ app.patch("/api/tests/:testId", authRequired, requireRoles("teacher", "admin"), 
     test.durationMinutes = Math.min(Math.max(Number(patch.durationMinutes) || test.durationMinutes, 5), 180);
   }
   if (patch.questionCount) {
-    test.questionCount = Math.min(Math.max(Number(patch.questionCount) || test.questionCount, 4), 20);
+    test.questionCount = Math.min(Math.max(Number(patch.questionCount) || test.questionCount, 1), 20);
   }
   if (patch.totalMarks) {
     test.totalMarks = Math.min(Math.max(Number(patch.totalMarks) || test.totalMarks, 10), 1000);

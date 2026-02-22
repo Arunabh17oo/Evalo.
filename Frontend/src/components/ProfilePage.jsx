@@ -1,19 +1,48 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ProfilePage({ user, onLogout, pushToast }) {
+const ROLE_THEMES = {
+    student: {
+        gradient: 'linear-gradient(135deg, #0ea5e9, #2563eb)',
+        background: 'rgba(14, 165, 233, 0.05)',
+        accent: '#38bdf8',
+        shadow: '0 20px 40px rgba(14, 165, 233, 0.2)',
+        icon: '🎓'
+    },
+    teacher: {
+        gradient: 'linear-gradient(135deg, #10b981, #0f766e)',
+        background: 'rgba(16, 185, 129, 0.05)',
+        accent: '#34d399',
+        shadow: '0 20px 40px rgba(16, 185, 129, 0.2)',
+        icon: '🏫'
+    },
+    admin: {
+        gradient: 'linear-gradient(135deg, #ef4444, #7f1d1d)',
+        background: 'rgba(239, 68, 68, 0.05)',
+        accent: '#f87171',
+        shadow: '0 20px 40px rgba(239, 68, 68, 0.2)',
+        icon: '⚡'
+    },
+    guest: {
+        gradient: 'linear-gradient(135deg, #6366f1, #312e81)',
+        background: 'rgba(99, 102, 241, 0.05)',
+        accent: '#818cf8',
+        shadow: '0 20px 40px rgba(99, 102, 241, 0.2)',
+        icon: '👤'
+    }
+};
+
+export default function ProfilePage({ user, onLogout, pushToast, myAttempts = [], onViewResult, darkMode, setDarkMode, setActivePage, onClearHistory, busy }) {
     if (!user) return null;
 
+    const theme = ROLE_THEMES[user.role] || ROLE_THEMES.guest;
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(user.name);
     const [email, setEmail] = useState(user.email);
     const [profilePic, setProfilePic] = useState(user.profilePic || null);
+    const fileInputRef = useRef(null);
 
-    // File upload ref
-    const fileInputRef = React.useRef(null);
-
-    // Settings State
-    const [darkMode, setDarkMode] = useState(true);
+    // Settings
     const [notifications, setNotifications] = useState(false);
     const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -21,7 +50,6 @@ export default function ProfilePage({ user, onLogout, pushToast }) {
 
     const handleSaveProfile = () => {
         setIsEditing(false);
-        // In a real app, send profilePic data to backend
         pushToast("Profile updated successfully!", "success");
     };
 
@@ -52,250 +80,320 @@ export default function ProfilePage({ user, onLogout, pushToast }) {
     };
 
     return (
-        <div className="profile-container">
-            {/* 1. Identity Header */}
-            <motion.div
-                className="profile-header"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-            >
-                <div className="avatar-section">
-                    <div className="profile-avatar" onClick={() => isEditing && fileInputRef.current?.click()}>
-                        {profilePic ? (
-                            <img src={profilePic} alt="Profile" className="avatar-image" />
-                        ) : (
-                            name.charAt(0).toUpperCase()
-                        )}
-                        {isEditing && (
-                            <div className="avatar-overlay">
-                                <span>📷</span>
+        <div className="profile-wrapper">
+            <div className="profile-container">
+                {/* 1. Identity Header */}
+                <motion.div
+                    className="profile-header-premium"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ background: theme.background }}
+                >
+                    <div className="header-gradient-glow" style={{ background: theme.gradient }} />
+
+                    <div className="header-content-top">
+                        <div className="avatar-side">
+                            <motion.div
+                                className="premium-avatar-container"
+                                whileHover={{ scale: 1.05 }}
+                                onClick={() => isEditing && fileInputRef.current?.click()}
+                            >
+                                <div className="premium-avatar-inner" style={{ background: theme.gradient }}>
+                                    {profilePic ? (
+                                        <img src={profilePic} alt="Profile" className="avatar-image" />
+                                    ) : (
+                                        <span className="avatar-initial">{name.charAt(0).toUpperCase()}</span>
+                                    )}
+                                    {isEditing && (
+                                        <div className="avatar-overlay-premium">
+                                            <span>📷</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="avatar-ring" style={{ borderColor: theme.accent }} />
+                            </motion.div>
+
+                            {isEditing && (
+                                <motion.div
+                                    className="avatar-controls-premium"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                >
+                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*" />
+                                    <button className="btn-small-premium" onClick={() => fileInputRef.current?.click()}>Update</button>
+                                    {profilePic && <button className="btn-small-premium danger" onClick={handleRemovePhoto}>Remove</button>}
+                                </motion.div>
+                            )}
+                        </div>
+
+                        <div className="info-side">
+                            <AnimatePresence mode="wait">
+                                {isEditing ? (
+                                    <motion.div
+                                        key="edit"
+                                        className="edit-fields-premium"
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 10 }}
+                                    >
+                                        <input className="input-premium" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full Name" />
+                                        <input className="input-premium" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email Address" />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="view"
+                                        className="view-fields-premium"
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 10 }}
+                                    >
+                                        <h1 className="name-premium">{name}</h1>
+                                        <p className="email-premium">{email}</p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <div className="badges-row-premium">
+                                <span className={`badge-premium role-${user.role}`} style={{ background: theme.background, borderColor: theme.accent, color: theme.accent }}>
+                                    <span className="badge-icon">{theme.icon}</span>
+                                    {user.role.toUpperCase()}
+                                </span>
+                                <span className="badge-premium light">
+                                    EST. {new Date().getFullYear()}
+                                </span>
                             </div>
-                        )}
+                        </div>
+
+                        <div className="actions-side">
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className={`btn-primary-premium ${isEditing ? 'save' : 'edit'}`}
+                                onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
+                                style={isEditing ? { background: theme.gradient } : {}}
+                            >
+                                {isEditing ? "Save Changes" : "Edit Profile"}
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="btn-secondary-premium logout"
+                                onClick={onLogout}
+                            >
+                                Logout
+                            </motion.button>
+                        </div>
                     </div>
-                    {isEditing && (
-                        <div className="avatar-controls">
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                style={{ display: 'none' }}
-                                accept="image/*"
-                            />
-                            <button className="btn-small-text" onClick={() => fileInputRef.current?.click()}>
-                                Upload Photo
-                            </button>
-                            {profilePic && (
-                                <button className="btn-small-text danger" onClick={handleRemovePhoto}>
-                                    Remove
+                </motion.div>
+
+                {/* 2. Performance Stats */}
+                <div className="stats-section-premium">
+                    <h2 className="section-title">Performance Insights</h2>
+                    <div className="stats-grid-premium">
+                        {stats.map((stat, idx) => (
+                            <motion.div
+                                key={idx}
+                                className="stat-card-premium"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: idx * 0.1 }}
+                                whileHover={{ y: -5, boxShadow: theme.shadow }}
+                            >
+                                <div className="stat-icon-premium" style={{ background: theme.background }}>{stat.icon}</div>
+                                <div className="stat-value-premium">{stat.value}</div>
+                                <div className="stat-label-premium">{stat.label}</div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 3. Detailed Settings */}
+                <div className="settings-grid-premium">
+                    <motion.div
+                        className="settings-card-premium glass"
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                    >
+                        <h3>System Preferences</h3>
+                        <div className="pref-items">
+                            <div className="pref-item-premium">
+                                <div className="pref-label">
+                                    <span className="label-text">Theme Mode</span>
+                                    <span className="label-sub">Dark/Light balance</span>
+                                </div>
+                                <button className={`toggle-pill ${darkMode ? 'active' : ''}`} onClick={() => setDarkMode(!darkMode)} style={darkMode ? { background: theme.gradient } : {}}>
+                                    {darkMode ? 'Dark' : 'Light'}
+                                </button>
+                            </div>
+                            <div className="pref-item-premium">
+                                <div className="pref-label">
+                                    <span className="label-text">Email Sync</span>
+                                    <span className="label-sub">Get real-time updates</span>
+                                </div>
+                                <button className={`toggle-pill ${notifications ? 'active' : ''}`} onClick={() => setNotifications(!notifications)} style={notifications ? { background: theme.gradient } : {}}>
+                                    {notifications ? 'On' : 'Off'}
+                                </button>
+                            </div>
+                            <div className="pref-item-premium">
+                                <div className="pref-label">
+                                    <span className="label-text">Motion Controls</span>
+                                    <span className="label-sub">Restrict animations</span>
+                                </div>
+                                <button className={`toggle-pill ${reduceMotion ? 'active' : ''}`} onClick={() => setReduceMotion(!reduceMotion)} style={reduceMotion ? { background: theme.gradient } : {}}>
+                                    {reduceMotion ? 'Reduced' : 'Full'}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        className="settings-card-premium glass"
+                        initial={{ opacity: 0, x: 30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0 }}>{user.role === 'student' ? 'Recent Milestones' : user.role === 'admin' ? 'System Integrity' : 'Management Hub'}</h3>
+                            {user.role === 'student' && myAttempts.length > 0 && (
+                                <button
+                                    className="btn-small-premium danger"
+                                    onClick={onClearHistory}
+                                    disabled={busy}
+                                    style={{ fontSize: '0.7rem' }}
+                                >
+                                    🗑️ Clear All
                                 </button>
                             )}
                         </div>
-                    )}
+                        <div className="activity-container-premium">
+                            {user.role === 'student' ? (
+                                <div className="activity-list-premium">
+                                    {myAttempts.length > 0 ? myAttempts.slice(0, 3).map((a, idx) => (
+                                        <motion.div
+                                            key={a.quizId || idx}
+                                            className="activity-item-premium clickable"
+                                            whileHover={{ x: 5, background: 'rgba(255,255,255,0.05)' }}
+                                            onClick={() => onViewResult && onViewResult(a)}
+                                        >
+                                            <div className="activity-info-min">
+                                                <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>{a.testTitle || "Untitled Test"}</span>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>{a.completedAt ? new Date(a.completedAt).toLocaleDateString() : "In Progress"}</small>
+                                                    {a.teacherPublishedAt && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>Finalized</span>}
+                                                </div>
+                                            </div>
+                                            <span className={`score-pill ${a.completed ? 'high' : 'mid'}`} style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '20px',
+                                                fontSize: '0.85rem',
+                                                background: a.completed ? 'rgba(59, 130, 246, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                                                color: a.completed ? '#60a5fa' : '#fbbf24',
+                                                border: `1px solid ${a.completed ? 'rgba(59, 130, 246, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`
+                                            }}>
+                                                {a.completed ? (a.averagePercentage !== null ? `${Math.round(a.averagePercentage)}%` : "Done") : "Active"}
+                                            </span>
+                                        </motion.div>
+                                    )) : (
+                                        <div style={{ opacity: 0.5, padding: '20px', textAlign: 'center', fontSize: '0.9rem' }}>No recent test activity found.</div>
+                                    )}
+                                </div>
+                            ) : user.role === 'admin' ? (
+                                <div className="activity-list-premium">
+                                    <div className="activity-item-premium clickable" onClick={() => setActivePage("admin")}>
+                                        <div className="activity-info-min">
+                                            <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>Node Performance</span>
+                                            <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>Infrastructure Check</small>
+                                        </div>
+                                        <span className="status-pill ok" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '4px 10px', borderRadius: '8px' }}>Optimal</span>
+                                    </div>
+                                    <div className="activity-item-premium clickable" onClick={() => setActivePage("admin")}>
+                                        <div className="activity-info-min">
+                                            <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>Security Review</span>
+                                            <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>Automated Scan</small>
+                                        </div>
+                                        <span className="status-pill warn" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '4px 10px', borderRadius: '8px' }}>2 Flags</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="quick-grid-premium">
+                                    <button className="btn-utility-premium" onClick={() => setActivePage("home")}>Question Bank</button>
+                                    <button className="btn-utility-premium" onClick={() => setActivePage("home")}>Review Tests</button>
+                                    <button className="btn-utility-premium" onClick={() => setActivePage("admin")}>Audit Users</button>
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
                 </div>
-
-                <div className="profile-info">
-                    {isEditing ? (
-                        <div className="edit-form">
-                            <input
-                                className="edit-input"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Your Name"
-                            />
-                            <input
-                                className="edit-input"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Email"
-                            />
-                        </div>
-                    ) : (
-                        <>
-                            <h1>{name}</h1>
-                            <p>{email}</p>
-                        </>
-                    )}
-                    <div className="badges-row">
-                        <span className={`role-badge ${user.role}`}>{user.role.toUpperCase()}</span>
-                        <span className="member-since">Member since: {new Date().getFullYear()}</span>
-                    </div>
-                </div>
-                <div className="header-actions">
-                    <button
-                        className={isEditing ? "btn-save-profile" : "btn-edit-profile"}
-                        onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-                    >
-                        {isEditing ? "Save Changes" : "Edit Profile"}
-                    </button>
-                    <button className="btn-logout" onClick={onLogout}>Logout</button>
-                </div>
-            </motion.div>
-
-            {/* 2. Performance Stats */}
-            <motion.div
-                className="stats-grid"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-            >
-                {stats.map((stat, idx) => (
-                    <div key={idx} className="stat-card">
-                        <div className="stat-icon">{stat.icon}</div>
-                        <div className="stat-value">{stat.value}</div>
-                        <div className="stat-label">{stat.label}</div>
-                    </div>
-                ))}
-            </motion.div>
-
-            {/* 3. Account Settings */}
-            <div className="settings-grid">
-                <motion.div
-                    className="settings-section"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    <h2>Account Settings</h2>
-                    <div className="setting-item">
-                        <div className="setting-info">
-                            <span>Theme Preference</span>
-                            <small>Dark/Light mode</small>
-                        </div>
-                        <button
-                            className={`toggle-btn ${darkMode ? 'active' : ''}`}
-                            onClick={() => {
-                                setDarkMode(!darkMode);
-                                pushToast(`Dark Mode ${!darkMode ? 'Enabled' : 'Disabled'}`, "info");
-                            }}
-                        >
-                            {darkMode ? 'Dark Mode' : 'Light Mode'}
-                        </button>
-                    </div>
-                    <div className="setting-item">
-                        <div className="setting-info">
-                            <span>Email Notifications</span>
-                            <small>Get updates on tests</small>
-                        </div>
-                        <button
-                            className={`toggle-btn ${notifications ? 'active' : ''}`}
-                            onClick={() => {
-                                setNotifications(!notifications);
-                                pushToast(`Notifications ${!notifications ? 'Enabled' : 'Disabled'}`, "info");
-                            }}
-                        >
-                            {notifications ? 'On' : 'Off'}
-                        </button>
-                    </div>
-                    <div className="setting-item">
-                        <div className="setting-info">
-                            <span>Security</span>
-                            <small>Password & Authentication</small>
-                        </div>
-                        <button className="btn-outline" onClick={() => pushToast("Password change email sent!", "success")}>
-                            Change Password
-                        </button>
-                    </div>
-                    <div className="setting-item">
-                        <div className="setting-info">
-                            <span>Accessibility</span>
-                            <small>Reduce Motion, High Contrast</small>
-                        </div>
-                        <div className="toggle-group">
-                            <button
-                                className={`toggle-btn ${reduceMotion ? 'active' : ''}`}
-                                onClick={() => setReduceMotion(!reduceMotion)}
-                            >
-                                Reduce Motion
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* Role Specific Extra (optional placeholder for Recent Activity/Alerts) */}
-                <motion.div
-                    className="settings-section"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                >
-                    <h2>{user.role === 'student' ? 'Recent Activity 📉' : user.role === 'admin' ? 'System Alerts 🔔' : 'Quick Actions ⚡'}</h2>
-                    {user.role === 'student' ? (
-                        <ul className="activity-list">
-                            <li><span>Physics Midterm</span> <span className="score good">85%</span></li>
-                            <li><span>Chemistry Quiz</span> <span className="score avg">72%</span></li>
-                            <li><span>Math Final</span> <span className="score good">90%</span></li>
-                        </ul>
-                    ) : user.role === 'admin' ? (
-                        <ul className="activity-list">
-                            <li><span>System Check</span> <span className="status ok">All Systems Operational</span></li>
-                            <li><span>Proctoring</span> <span className="status warning">2 Flags Reviewed</span></li>
-                        </ul>
-                    ) : (
-                        <div className="quick-actions">
-                            <button className="btn-outline full-width" onClick={() => handleAction("Upload Question Bank")}>
-                                Upload New Question Bank
-                            </button>
-                            <button className="btn-outline full-width" onClick={() => handleAction("Review Pending Tests")}>
-                                Review Pending Tests
-                            </button>
-                            <button className="btn-outline full-width" onClick={() => handleAction("Manage Students")}>
-                                Manage Students
-                            </button>
-                        </div>
-                    )}
-                </motion.div>
             </div>
 
             <style>{`
-                .profile-container {
-                    max-width: 900px;
-                    margin: 4rem auto 0; /* Added top margin to clear header */
-                    padding: 2rem;
+                .profile-wrapper {
+                    min-height: 100vh;
+                    padding-top: 5rem;
+                    padding-bottom: 5rem;
                     color: white;
-                    padding-bottom: 6rem; /* space for fab */
-                    position: relative;
-                    z-index: 15;
+                    overflow-x: hidden;
+                    background: transparent;
                 }
 
-                .profile-header {
+                .profile-container {
+                    max-width: 1100px;
+                    margin: 0 auto;
+                    padding: 0 1.5rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 3rem;
+                }
+
+                /* Header Styling */
+                .profile-header-premium {
+                    position: relative;
+                    border-radius: 32px;
+                    padding: 3rem;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    overflow: hidden;
+                    backdrop-filter: blur(20px);
+                    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+                }
+
+                .header-gradient-glow {
+                    position: absolute;
+                    top: -50%;
+                    right: -20%;
+                    width: 400px;
+                    height: 400px;
+                    filter: blur(80px);
+                    opacity: 0.15;
+                    pointer-events: none;
+                }
+
+                .header-content-top {
                     display: flex;
                     align-items: center;
-                    gap: 2rem;
-                    background: #1e293b; /* Solid dark background */
-                    padding: 2.5rem;
-                    border-radius: 24px;
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                    gap: 3rem;
                     position: relative;
                     z-index: 2;
                 }
 
-                .avatar-section {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 1rem;
+                /* Avatar */
+                .premium-avatar-container {
+                    position: relative;
+                    width: 160px;
+                    height: 160px;
+                    cursor: pointer;
                 }
 
-                .profile-avatar {
-                    width: 120px;
-                    height: 120px;
-                    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                .premium-avatar-inner {
+                    width: 100%;
+                    height: 100%;
                     border-radius: 50%;
                     display: grid;
                     place-items: center;
-                    font-size: 3.5rem;
-                    font-weight: bold;
-                    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
-                    border: 4px solid rgba(255,255,255,0.1);
+                    font-size: 5rem;
+                    font-weight: 800;
                     overflow: hidden;
                     position: relative;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                
-                .profile-avatar:hover {
-                    border-color: rgba(255,255,255,0.3);
+                    z-index: 2;
+                    box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
                 }
 
                 .avatar-image {
@@ -304,272 +402,288 @@ export default function ProfilePage({ user, onLogout, pushToast }) {
                     object-fit: cover;
                 }
 
-                .avatar-overlay {
+                .avatar-ring {
                     position: absolute;
-                    inset: 0;
-                    background: rgba(0,0,0,0.3);
-                    display: grid;
-                    place-items: center;
-                    opacity: 0;
-                    transition: opacity 0.2s;
-                }
-                
-                .profile-avatar:hover .avatar-overlay {
-                    opacity: 1;
+                    inset: -10px;
+                    border: 2px solid;
+                    border-radius: 50%;
+                    opacity: 0.3;
+                    transition: all 0.3s;
                 }
 
-                .avatar-controls {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                    align-items: center;
-                }
-
-                .btn-small-text {
-                    background: none;
-                    border: none;
-                    color: #94a3b8;
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                    text-decoration: underline;
-                    padding: 0;
-                }
-                
-                .btn-small-text:hover { color: white; }
-                .btn-small-text.danger { color: #f87171; }
-                .btn-small-text.danger:hover { color: #ef4444; }
-
-                .profile-info {
-                    flex: 1;
-                }
-
-                .profile-info h1 {
-                    margin: 0;
-                    font-size: 2.5rem;
-                    font-weight: 700;
-                    letter-spacing: -0.5px;
-                }
-
-                .profile-info p {
-                    margin: 0.5rem 0 1rem;
-                    opacity: 0.7;
-                    font-size: 1.1rem;
-                }
-                
-                .edit-form {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                    margin-bottom: 1rem;
-                }
-                
-                .edit-input {
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid rgba(255,255,255,0.2);
-                    padding: 0.5rem;
-                    border-radius: 8px;
-                    color: white;
-                    font-size: 1.1rem;
-                }
-
-                .badges-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
-                }
-
-                .role-badge {
-                    display: inline-block;
-                    padding: 0.4rem 1rem;
-                    border-radius: 99px;
-                    font-size: 0.85rem;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-
-                .role-badge.student { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-                .role-badge.teacher { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-                .role-badge.admin { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-
-                .member-since {
-                    font-size: 0.9rem;
+                .premium-avatar-container:hover .avatar-ring {
+                    inset: -15px;
                     opacity: 0.5;
                 }
 
-                .header-actions {
+                .avatar-overlay-premium {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(0,0,0,0.4);
+                    display: grid;
+                    place-items: center;
+                    font-size: 2rem;
+                    backdrop-filter: blur(4px);
+                }
+
+                .avatar-controls-premium {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-top: 1rem;
+                    justify-content: center;
+                }
+
+                .btn-small-premium {
+                    background: rgba(255,255,255,0.05);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    color: white;
+                    padding: 0.4rem 0.8rem;
+                    border-radius: 8px;
+                    font-size: 0.75rem;
+                    cursor: pointer;
+                    transition: 0.2s;
+                }
+                .btn-small-premium:hover { background: rgba(255,255,255,0.15); }
+                .btn-small-premium.danger { color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
+
+                /* Info Section */
+                .info-side {
+                    flex: 1;
+                }
+
+                .name-premium {
+                    font-size: 3.5rem;
+                    font-weight: 900;
+                    margin: 0;
+                    letter-spacing: -2px;
+                    line-height: 1;
+                }
+
+                .email-premium {
+                    font-size: 1.2rem;
+                    opacity: 0.6;
+                    margin: 0.5rem 0 1.5rem;
+                }
+
+                .input-premium {
+                    background: rgba(255,255,255,0.05);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    padding: 0.8rem 1.2rem;
+                    border-radius: 12px;
+                    color: white;
+                    font-size: 1.2rem;
+                    width: 100%;
+                    margin-bottom: 0.8rem;
+                }
+
+                .badges-row-premium {
+                    display: flex;
+                    gap: 1rem;
+                }
+
+                .badge-premium {
+                    padding: 0.6rem 1.2rem;
+                    border-radius: 14px;
+                    font-size: 0.850rem;
+                    font-weight: 800;
+                    border: 1px solid;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    letter-spacing: 1px;
+                }
+
+                .badge-premium.light {
+                    background: rgba(255,255,255,0.05);
+                    border-color: rgba(255,255,255,0.1);
+                    color: #94a3b8;
+                }
+
+                /* Actions */
+                .actions-side {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.8rem;
+                    gap: 1rem;
+                    min-width: 200px;
                 }
 
-                .btn-logout, .btn-edit-profile, .btn-save-profile {
-                    padding: 0.8rem 1.5rem;
-                    border-radius: 12px;
+                .btn-primary-premium {
+                    padding: 1rem 2rem;
+                    border-radius: 16px;
+                    border: none;
+                    color: white;
+                    font-weight: 700;
                     cursor: pointer;
-                    transition: all 0.2s;
-                    font-weight: 600;
-                    min-width: 140px;
+                    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
                 }
 
-                .btn-logout {
-                    background: rgba(239, 68, 68, 0.1);
-                    border: 1px solid rgba(239, 68, 68, 0.2);
-                    color: #f87171;
-                }
-                .btn-logout:hover {
-                    background: rgba(239, 68, 68, 0.2);
-                    transform: translateY(-2px);
-                }
+                .btn-primary-premium.edit { background: white; color: black; }
+                .btn-primary-premium.save { color: white; }
 
-                .btn-edit-profile {
-                    background: rgba(255, 255, 255, 0.1);
+                .btn-secondary-premium {
+                    padding: 1rem 2rem;
+                    border-radius: 16px;
+                    background: rgba(255, 255, 255, 0.05);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     color: white;
-                }
-                .btn-edit-profile:hover {
-                    background: rgba(255, 255, 255, 0.2);
-                    transform: translateY(-2px);
-                }
-                
-                .btn-save-profile {
-                    background: #6366f1;
-                    border: 1px solid #6366f1;
-                    color: white;
-                }
-                .btn-save-profile:hover {
-                    background: #4f46e5;
-                    transform: translateY(-2px);
+                    font-weight: 600;
+                    cursor: pointer;
                 }
 
-                .stats-grid {
+                .btn-secondary-premium.logout:hover {
+                    background: rgba(239, 68, 68, 0.1);
+                    border-color: rgba(239, 68, 68, 0.2);
+                    color: #f87171;
+                }
+
+                /* Stats Section */
+                .section-title {
+                    font-size: 1.5rem;
+                    font-weight: 800;
+                    margin-bottom: 2rem;
+                    opacity: 0.8;
+                }
+
+                .stats-grid-premium {
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                    gap: 1.5rem;
-                    margin-bottom: 2rem;
-                }
-
-                .stat-card {
-                    background: #1e293b;
-                    padding: 2rem;
-                    border-radius: 20px;
-                    text-align: center;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    transition: transform 0.2s;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                }
-                .stat-card:hover {
-                    transform: translateY(-5px);
-                    background: #334155;
-                }
-
-                .stat-icon {
-                    font-size: 2.5rem;
-                    margin-bottom: 1rem;
-                }
-
-                .stat-value {
-                    font-size: 2rem;
-                    font-weight: 800;
-                    margin-bottom: 0.5rem;
-                    background: linear-gradient(to right, #fff, #94a3b8);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                }
-
-                .stat-label {
-                    font-size: 0.95rem;
-                    color: #94a3b8;
-                    font-weight: 500;
-                }
-                
-                .settings-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
                     gap: 2rem;
                 }
 
-                .settings-section {
-                    background: #1e293b;
-                    padding: 2rem;
-                    border-radius: 24px;
+                .stat-card-premium {
+                    background: rgba(255, 255, 255, 0.03);
                     border: 1px solid rgba(255, 255, 255, 0.05);
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                    padding: 2.5rem 2rem;
+                    border-radius: 28px;
+                    text-align: center;
+                    backdrop-filter: blur(10px);
                 }
 
-                .settings-section h2 {
-                    margin-top: 0;
-                    margin-bottom: 1.5rem;
-                    font-size: 1.3rem;
-                    color: #e2e8f0;
+                .stat-icon-premium {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 18px;
+                    margin: 0 auto 1.5rem;
+                    display: grid;
+                    place-items: center;
+                    font-size: 1.8rem;
                 }
 
-                .setting-item {
+                .stat-value-premium {
+                    font-size: 2.5rem;
+                    font-weight: 900;
+                    margin-bottom: 0.5rem;
+                }
+
+                .stat-label-premium {
+                    color: #64748b;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    font-size: 0.8rem;
+                    letter-spacing: 1px;
+                }
+
+                /* Settings Grid */
+                .settings-grid-premium {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                    gap: 2rem;
+                }
+
+                .settings-card-premium {
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    padding: 2.5rem;
+                    border-radius: 32px;
+                }
+
+                .settings-card-premium h3 {
+                    margin: 0 0 2rem;
+                    font-size: 1.4rem;
+                }
+
+                .pref-items { display: flex; flex-direction: column; gap: 1.5rem; }
+
+                .pref-item-premium {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 1.2rem 0;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
                 }
-                .setting-item:last-child { border-bottom: none; }
 
-                .setting-info { display: flex; flex-direction: column; gap: 4px; }
-                .setting-info span { font-weight: 600; color: #f1f5f9; }
-                .setting-info small { color: #64748b; font-size: 0.85rem; }
+                .label-text { display: block; font-weight: 700; font-size: 1.1rem; }
+                .label-sub { display: block; font-size: 0.85rem; color: #64748b; margin-top: 2px; }
 
-                .toggle-btn {
-                    padding: 0.6rem 1.2rem;
-                    border-radius: 10px;
+                .toggle-pill {
+                    padding: 0.6rem 1.4rem;
+                    border-radius: 99px;
                     border: 1px solid rgba(255,255,255,0.1);
-                    background: transparent;
+                    background: rgba(255,255,255,0.05);
                     color: #94a3b8;
+                    font-weight: 600;
                     cursor: pointer;
-                    transition: all 0.2s;
+                    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 }
 
-                .toggle-btn.active {
-                    background: #6366f1;
+                .toggle-pill.active {
                     color: white;
-                    border-color: #6366f1;
+                    border-color: transparent;
+                    transform: scale(1.05);
+                    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
                 }
-                
-                .btn-outline {
-                    padding: 0.6rem 1.2rem;
-                    border-radius: 10px;
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    background: transparent;
-                    color: white;
-                    cursor: pointer;
-                    font-size: 0.9rem;
-                    transition: all 0.2s;
-                }
-                
-                .btn-outline:hover {
-                    background: rgba(255, 255, 255, 0.1);
-                    border-color: white;
-                }
-                
-                .full-width { width: 100%; margin-bottom: 0.5rem; }
-                
-                .activity-list { list-style: none; padding: 0; margin: 0; }
-                .activity-list li {
+
+                .activity-list-premium { display: flex; flex-direction: column; gap: 1rem; }
+                .activity-item-premium {
                     display: flex;
                     justify-content: space-between;
-                    padding: 0.8rem 0;
-                    border-bottom: 1px solid rgba(255,255,255,0.05);
-                    font-size: 0.95rem;
+                    align-items: center;
+                    background: rgba(255,255,255,0.02);
+                    padding: 1rem 1.2rem;
+                    border-radius: 14px;
+                    border: 1px solid rgba(255,255,255,0.02);
+                    transition: 0.2s;
                 }
-                .activity-list li:last-child { border-bottom: none; }
-                .score { font-weight: bold; }
-                .score.good { color: #34d399; }
-                .score.avg { color: #facc15; }
-                .status.ok { color: #34d399; }
-                .status.warning { color: #facc15; }
-                
-                @media (max-width: 768px) {
-                    .profile-header { flex-direction: column; text-align: center; padding: 1.5rem; }
-                    .header-actions { width: 100%; flex-direction: row; justify-content: center; }
-                    .badges-row { justify-content: center; }
+                .activity-item-premium.clickable { cursor: pointer; }
+                .activity-item-premium.clickable:hover { 
+                    background: rgba(255,255,255,0.06);
+                    border-color: rgba(255,255,255,0.1);
+                    transform: translateX(4px);
+                }
+
+                .score-pill { padding: 0.3rem 0.8rem; border-radius: 8px; font-weight: 800; font-size: 0.8rem; }
+                .score-pill.high { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+                .score-pill.mid { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+
+                .status-pill { padding: 0.3rem 0.8rem; border-radius: 8px; font-weight: 800; font-size: 0.8rem; }
+                .status-pill.ok { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+                .status-pill.warn { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+                .quick-grid-premium { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+                .btn-utility-premium {
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.05);
+                    color: white;
+                    padding: 1.5rem 1rem;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    font-weight: 700;
+                    transition: 0.2s;
+                }
+                .btn-utility-premium:hover { background: rgba(255,255,255,0.08); transform: translateY(-3px); }
+
+                @media (max-width: 1024px) {
+                    .header-content-top { flex-direction: column; text-align: center; }
+                    .info-side { width: 100%; }
+                    .actions-side { width: 100%; flex-direction: row; justify-content: center; }
+                    .badges-row-premium { justify-content: center; }
+                    .name-premium { font-size: 2.8rem; }
+                }
+
+                @media (max-width: 600px) {
+                    .settings-grid-premium { grid-template-columns: 1fr; }
+                    .actions-side { flex-direction: column; }
+                    .stats-grid-premium { grid-template-columns: 1fr; }
+                    .profile-header-premium { padding: 2rem 1.5rem; }
+                    .name-premium { font-size: 2.2rem; }
                 }
             `}</style>
         </div>

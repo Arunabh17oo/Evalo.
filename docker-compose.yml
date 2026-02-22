@@ -8,7 +8,7 @@ services:
       - /app/node_modules
     environment:
       - PORT=5050
-      - MONGODB_URI=mongodb://db:27017/evalo
+      - MONGODB_URI=mongodb+srv://admin:qqaaQQAA@database.2brcekd.mongodb.net/test
     depends_on:
       - db
 

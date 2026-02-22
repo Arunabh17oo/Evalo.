@@ -238,13 +238,15 @@ function normalizeIntString(value, min, max, fallback) {
   return String(n);
 }
 
-function Logo5D() {
+function Logo5D({ onHome }) {
   return (
     <motion.div
       className="logo5d"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7 }}
+      onClick={onHome}
+      style={{ cursor: onHome ? 'pointer' : 'default' }}
     >
       <img src="/evalo-logo.png" alt="Evalo Logo" className="logo5d-icon" />
       <div className="logo5d-text">
@@ -686,7 +688,7 @@ export default function App() {
   const [createTestForm, setCreateTestForm] = useState({
     title: "",
     durationMinutes: 35,
-    questionCount: 6,
+    questionCount: 1,
     totalMarks: 100,
     difficulty: "medium",
     questionFormat: "subjective",
@@ -932,6 +934,28 @@ export default function App() {
       // ignore
     } finally {
       setAttemptBusy(false);
+    }
+  }
+
+  async function deleteTest(testId) {
+    if (!token || !confirm("Are you sure you want to delete this test and all its attempts?")) return;
+    try {
+      await axios.delete(`${API_BASE}/tests/${testId}`, authConfig(token));
+      pushToast("Test deleted successfully.", "success");
+      loadRoleData();
+    } catch (err) {
+      pushToast(appError(err, "Failed to delete test."), "danger");
+    }
+  }
+
+  async function clearMyHistory() {
+    if (!token || !confirm("Are you sure you want to clear your entire test history?")) return;
+    try {
+      await axios.delete(`${API_BASE}/users/me/quizzes`, authConfig(token));
+      pushToast("History cleared successfully.", "success");
+      loadMyAttempts();
+    } catch (err) {
+      pushToast(appError(err, "Failed to clear history."), "danger");
     }
   }
 
@@ -1444,6 +1468,11 @@ export default function App() {
         setProctorAlert(data.warning);
         setTimeout(() => setProctorAlert(""), 3000);
       }
+      // Auto-cancel exam when cheating reaches 100%
+      if ((data.riskScore || 0) >= 100) {
+        pushToast("⛔ Exam auto-terminated: Cheating limit (100%) reached.", "danger");
+        forceResult(targetQuizId);
+      }
     } catch (_err) {
       // best effort
     }
@@ -1888,13 +1917,12 @@ export default function App() {
       {/* Fixed Top Navigation */}
       <header className="top-nav">
         <div className="nav-container">
-          <Logo5D />
+          <Logo5D onHome={() => setActivePage("home")} />
           <div className="nav-actions">
             {!user ? (
               <button className="cta-button" onClick={() => setAuthOpen(true)}><span>Login / Sign Up</span></button>
             ) : (
               <>
-                <button className="btn-soft" onClick={() => setActivePage("home")}>Home</button>
                 {(isTeacher || isAdmin) && user.isApproved ? (
                   <button className="btn-soft" onClick={() => setActivePage("admin")}>
                     {isAdmin ? "Admin Control" : "Teacher Hub"}
@@ -1930,6 +1958,15 @@ export default function App() {
                 pushToast={pushToast}
                 darkMode={darkMode}
                 setDarkMode={setDarkMode}
+                myAttempts={myAttempts}
+                onViewResult={(a) => {
+                  setSelectedAttempt(a);
+                  viewAttempt(a.quizId);
+                  setActivePage("home");
+                }}
+                onClearHistory={clearMyHistory}
+                busy={attemptBusy}
+                setActivePage={setActivePage}
               />
             ) : activePage === "admin" ? (
               <section id="admin-section" className="card big-card">
@@ -2409,7 +2446,7 @@ export default function App() {
                           Questions
                           <input
                             type="number"
-                            min="4"
+                            min="1"
                             max="20"
                             step="1"
                             value={createTestForm.questionCount}
@@ -2419,7 +2456,7 @@ export default function App() {
                               setCreateTestForm((p) => ({ ...p, questionCount: raw ? Number(raw) : 0 }));
                             }}
                             onBlur={(e) => {
-                              const normalized = normalizeIntString(e.target.value, 4, 20, 6);
+                              const normalized = normalizeIntString(e.target.value, 1, 20, 1);
                               setCreateTestForm((p) => ({ ...p, questionCount: Number(normalized) }));
                             }}
                           />
@@ -2683,11 +2720,19 @@ export default function App() {
                                         mcqCount: test.mcqCount || 0,
                                         subjectiveCount: test.subjectiveCount || 0
                                       }));
+                                      setCreateTestOpen(true);
                                       pushToast("Editing test settings.", "info");
                                     }}
                                     disabled={attemptBusy}
                                   >
                                     ✏️ Edit
+                                  </button>
+                                  <button
+                                    className="btn-card-secondary danger"
+                                    onClick={() => deleteTest(test.id)}
+                                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                  >
+                                    🗑️ Delete
                                   </button>
                                 </div>
                               </div>
@@ -3052,9 +3097,32 @@ export default function App() {
                           {!cameraReady ? <p className="hint">Camera preview inactive.</p> : null}
                         </div>
                         {cameraError ? <p className="error">{cameraError}</p> : null}
-                        <div className="evaluation">
-                          <p>Risk Score: {proctor.riskScore || 0}%</p>
-                          <p>Warnings: {proctor.warningCount || 0}</p>
+                        <div className="evaluation" style={{ padding: 0, background: 'none' }}>
+                          {(() => {
+                            const risk = proctor.riskScore || 0;
+                            const riskColor = risk >= 80 ? '#ef4444' : risk >= 60 ? '#f97316' : risk >= 30 ? '#f59e0b' : '#10b981';
+                            const riskMsg = risk >= 80 ? '🔴 Critical – will auto-terminate at 100%' : risk >= 60 ? '🚨 High risk – return to exam now' : risk >= 30 ? '⚠️ Suspicious activity detected' : '✅ Looking good – stay focused';
+                            return (
+                              <div style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${riskColor}33`, borderRadius: '14px', padding: '1rem', marginTop: '0.75rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.85rem', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.8)' }}>⚠️ CHEATING CHANCES</span>
+                                  <span style={{ fontWeight: 900, fontSize: '1.4rem', color: riskColor, transition: 'color 0.5s' }}>{risk}%</span>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '8px', height: '12px', overflow: 'hidden', marginBottom: '0.6rem' }}>
+                                  <div style={{
+                                    height: '100%',
+                                    width: `${risk}%`,
+                                    background: `linear-gradient(90deg, ${riskColor}99, ${riskColor})`,
+                                    borderRadius: '8px',
+                                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s',
+                                    boxShadow: `0 0 10px ${riskColor}66`
+                                  }} />
+                                </div>
+                                <p style={{ fontSize: '0.75rem', color: riskColor, margin: '0 0 0.3rem', transition: 'color 0.5s' }}>{riskMsg}</p>
+                                <p style={{ fontSize: '0.7rem', opacity: 0.45, margin: 0 }}>Warnings issued: {proctor.warningCount || 0}</p>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     ) : null}
@@ -3250,7 +3318,6 @@ export default function App() {
                 {
                   question ? (
                     <section className="card quiz-card">
-                      <SoundscapeEngine isActive={examActive} />
                       <div className="question-head">
                         <span>Test: {joinedTest?.title || "Evalo Test"}</span>
                         <span className="pill">Q{question.number}/{question.total}</span>
@@ -3499,7 +3566,7 @@ export default function App() {
         error={addUserError}
       />
       <Footer user={user} activePage={activePage} navigateTo={navigateTo} setAuthOpen={setAuthOpen} />
-      <VoiceAssistant context={cmdkContext} onOpen={() => setIsCommandPaletteOpen(true)} />
+      {!examActive && <VoiceAssistant context={cmdkContext} onOpen={() => setIsCommandPaletteOpen(true)} />}
     </div>
   );
 }
