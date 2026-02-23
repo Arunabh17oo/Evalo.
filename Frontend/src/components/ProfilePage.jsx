@@ -3,39 +3,76 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const ROLE_THEMES = {
     student: {
-        gradient: 'linear-gradient(135deg, #0ea5e9, #2563eb)',
-        background: 'rgba(14, 165, 233, 0.05)',
-        accent: '#38bdf8',
-        shadow: '0 20px 40px rgba(14, 165, 233, 0.2)',
-        icon: '🎓'
+        dark: {
+            gradient: 'linear-gradient(135deg, #0ea5e9, #2563eb)',
+            background: 'rgba(14, 165, 233, 0.05)',
+            accent: '#38bdf8',
+            shadow: '0 20px 40px rgba(14, 165, 233, 0.2)',
+            icon: '🎓'
+        },
+        light: {
+            gradient: 'linear-gradient(135deg, #0ea5e9, #2563eb)',
+            background: '#ffffff',
+            accent: '#0369a1',
+            shadow: '0 10px 30px rgba(14, 165, 233, 0.1)',
+            icon: '🎓'
+        }
     },
     teacher: {
-        gradient: 'linear-gradient(135deg, #10b981, #0f766e)',
-        background: 'rgba(16, 185, 129, 0.05)',
-        accent: '#34d399',
-        shadow: '0 20px 40px rgba(16, 185, 129, 0.2)',
-        icon: '🏫'
+        dark: {
+            gradient: 'linear-gradient(135deg, #10b981, #0f766e)',
+            background: 'rgba(16, 185, 129, 0.05)',
+            accent: '#34d399',
+            shadow: '0 20px 40px rgba(16, 185, 129, 0.2)',
+            icon: '🏫'
+        },
+        light: {
+            gradient: 'linear-gradient(135deg, #10b981, #0f766e)',
+            background: '#ffffff',
+            accent: '#065f46',
+            shadow: '0 10px 30px rgba(16, 185, 129, 0.1)',
+            icon: '🏫'
+        }
     },
     admin: {
-        gradient: 'linear-gradient(135deg, #ef4444, #7f1d1d)',
-        background: 'rgba(239, 68, 68, 0.05)',
-        accent: '#f87171',
-        shadow: '0 20px 40px rgba(239, 68, 68, 0.2)',
-        icon: '⚡'
+        dark: {
+            gradient: 'linear-gradient(135deg, #ef4444, #7f1d1d)',
+            background: 'rgba(239, 68, 68, 0.05)',
+            accent: '#f87171',
+            shadow: '0 20px 40px rgba(239, 68, 68, 0.2)',
+            icon: '⚡'
+        },
+        light: {
+            gradient: 'linear-gradient(135deg, #ef4444, #7f1d1d)',
+            background: '#ffffff',
+            accent: '#991b1b',
+            shadow: '0 10px 30px rgba(239, 68, 68, 0.1)',
+            icon: '⚡'
+        }
     },
     guest: {
-        gradient: 'linear-gradient(135deg, #6366f1, #312e81)',
-        background: 'rgba(99, 102, 241, 0.05)',
-        accent: '#818cf8',
-        shadow: '0 20px 40px rgba(99, 102, 241, 0.2)',
-        icon: '👤'
+        dark: {
+            gradient: 'linear-gradient(135deg, #6366f1, #312e81)',
+            background: 'rgba(99, 102, 241, 0.05)',
+            accent: '#818cf8',
+            shadow: '0 20px 40px rgba(99, 102, 241, 0.2)',
+            icon: '👤'
+        },
+        light: {
+            gradient: 'linear-gradient(135deg, #6366f1, #312e81)',
+            background: '#ffffff',
+            accent: '#3730a3',
+            shadow: '0 10px 30px rgba(99, 102, 241, 0.1)',
+            icon: '👤'
+        }
     }
 };
 
-export default function ProfilePage({ user, onLogout, pushToast, myAttempts = [], onViewResult, darkMode, setDarkMode, setActivePage, onClearHistory, busy }) {
+export default function ProfilePage({ user, onLogout, pushToast, myAttempts = [], onViewResult, darkMode, setDarkMode, reduceMotion, setReduceMotion, setActivePage, onClearHistory, adminStats, busy }) {
     if (!user) return null;
 
-    const theme = ROLE_THEMES[user.role] || ROLE_THEMES.guest;
+    const roleTheme = ROLE_THEMES[user.role] || ROLE_THEMES.guest;
+    const theme = darkMode ? roleTheme.dark : roleTheme.light;
     const [isEditing, setIsEditing] = useState(false);
     const [name, setName] = useState(user.name);
     const [email, setEmail] = useState(user.email);
@@ -44,9 +81,8 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
 
     // Settings
     const [notifications, setNotifications] = useState(false);
-    const [reduceMotion, setReduceMotion] = useState(false);
 
-    const stats = getRoleStats(user);
+    const stats = getRoleStats(user, adminStats);
 
     const handleSaveProfile = () => {
         setIsEditing(false);
@@ -264,63 +300,70 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                                 </button>
                             )}
                         </div>
-                        <div className="activity-container-premium">
-                            {user.role === 'student' ? (
-                                <div className="activity-list-premium">
-                                    {myAttempts.length > 0 ? myAttempts.slice(0, 3).map((a, idx) => (
-                                        <motion.div
-                                            key={a.quizId || idx}
-                                            className="activity-item-premium clickable"
-                                            whileHover={{ x: 5, background: 'rgba(255,255,255,0.05)' }}
-                                            onClick={() => onViewResult && onViewResult(a)}
-                                        >
-                                            <div className="activity-info-min">
-                                                <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>{a.testTitle || "Untitled Test"}</span>
-                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                    <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>{a.completedAt ? new Date(a.completedAt).toLocaleDateString() : "In Progress"}</small>
-                                                    {a.teacherPublishedAt && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>Finalized</span>}
-                                                </div>
+                        {user.role === 'student' ? (
+                            <div className="activity-list-premium">
+                                {myAttempts.length > 0 ? myAttempts.slice(0, 3).map((a, idx) => (
+                                    <motion.div
+                                        key={a.quizId || idx}
+                                        className="activity-item-premium clickable"
+                                        whileHover={{ x: 5, background: 'rgba(255,255,255,0.05)' }}
+                                        onClick={() => onViewResult && onViewResult(a)}
+                                    >
+                                        <div className="activity-info-min">
+                                            <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>{a.testTitle || "Untitled Test"}</span>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>{a.completedAt ? new Date(a.completedAt).toLocaleDateString() : "In Progress"}</small>
+                                                {a.teacherPublishedAt && <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>Finalized</span>}
                                             </div>
-                                            <span className={`score-pill ${a.completed ? 'high' : 'mid'}`} style={{
-                                                padding: '4px 10px',
-                                                borderRadius: '20px',
-                                                fontSize: '0.85rem',
-                                                background: a.completed ? 'rgba(59, 130, 246, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                                                color: a.completed ? '#60a5fa' : '#fbbf24',
-                                                border: `1px solid ${a.completed ? 'rgba(59, 130, 246, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`
-                                            }}>
-                                                {a.completed ? (a.averagePercentage !== null ? `${Math.round(a.averagePercentage)}%` : "Done") : "Active"}
-                                            </span>
-                                        </motion.div>
-                                    )) : (
-                                        <div style={{ opacity: 0.5, padding: '20px', textAlign: 'center', fontSize: '0.9rem' }}>No recent test activity found.</div>
-                                    )}
-                                </div>
-                            ) : user.role === 'admin' ? (
-                                <div className="activity-list-premium">
-                                    <div className="activity-item-premium clickable" onClick={() => setActivePage("admin")}>
-                                        <div className="activity-info-min">
-                                            <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>Node Performance</span>
-                                            <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>Infrastructure Check</small>
                                         </div>
-                                        <span className="status-pill ok" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '4px 10px', borderRadius: '8px' }}>Optimal</span>
+                                        <span className={`score-pill ${a.completed ? 'high' : 'mid'}`} style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '20px',
+                                            fontSize: '0.85rem',
+                                            background: a.completed ? 'rgba(59, 130, 246, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                                            color: a.completed ? '#60a5fa' : '#fbbf24',
+                                            border: `1px solid ${a.completed ? 'rgba(59, 130, 246, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`
+                                        }}>
+                                            {a.completed ? (a.averagePercentage !== null ? `${Math.round(a.averagePercentage)}%` : "Done") : "Active"}
+                                        </span>
+                                    </motion.div>
+                                )) : (
+                                    <div style={{ opacity: 0.5, padding: '20px', textAlign: 'center', fontSize: '0.9rem' }}>No recent test activity found.</div>
+                                )}
+                            </div>
+                        ) : user.role === 'admin' ? (
+                            <div className="activity-list-premium">
+                                <div className="activity-item-premium clickable" onClick={() => setActivePage("admin")}>
+                                    <div className="activity-info-min">
+                                        <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>Node Performance</span>
+                                        <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>{adminStats?.integrity?.infrastructureCheck || "Infrastructure Check"}</small>
                                     </div>
-                                    <div className="activity-item-premium clickable" onClick={() => setActivePage("admin")}>
-                                        <div className="activity-info-min">
-                                            <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>Security Review</span>
-                                            <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>Automated Scan</small>
-                                        </div>
-                                        <span className="status-pill warn" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '4px 10px', borderRadius: '8px' }}>2 Flags</span>
+                                    <span className="status-pill ok" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '4px 10px', borderRadius: '8px' }}>
+                                        {adminStats?.integrity?.nodePerformance || "Optimal"}
+                                    </span>
+                                </div>
+                                <div className="activity-item-premium clickable" onClick={() => setActivePage("admin")}>
+                                    <div className="activity-info-min">
+                                        <span className="test-name-bold" style={{ fontWeight: '600', display: 'block' }}>Security Review</span>
+                                        <small style={{ opacity: 0.6, fontSize: '0.8rem' }}>{adminStats?.integrity?.automatedScan || "Automated Scan"}</small>
                                     </div>
+                                    <span className={`status-pill ${adminStats?.criticalAlerts > 0 ? 'warn' : 'ok'}`} style={{
+                                        background: adminStats?.criticalAlerts > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                        color: adminStats?.criticalAlerts > 0 ? '#ef4444' : '#10b981',
+                                        padding: '4px 10px',
+                                        borderRadius: '8px'
+                                    }}>
+                                        {adminStats?.criticalAlerts || 0} Flags
+                                    </span>
                                 </div>
-                            ) : (
-                                <div className="quick-grid-premium">
-                                    <button className="btn-utility-premium" onClick={() => setActivePage("home")}>Question Bank</button>
-                                    <button className="btn-utility-premium" onClick={() => setActivePage("home")}>Review Tests</button>
-                                    <button className="btn-utility-premium" onClick={() => setActivePage("admin")}>Audit Users</button>
-                                </div>
-                            )}
-                        </div>
+                            </div>
+                        ) : (
+                            <div className="quick-grid-premium">
+                                <button className="btn-utility-premium" onClick={() => setActivePage("home")}>Question Bank</button>
+                                <button className="btn-utility-premium" onClick={() => setActivePage("home")}>Review Tests</button>
+                                <button className="btn-utility-premium" onClick={() => setActivePage("admin")}>Audit Users</button>
+                            </div>
+                        )}
                     </motion.div>
                 </div>
             </div>
@@ -334,6 +377,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     overflow-x: hidden;
                     background: transparent;
                 }
+                body.light-mode .profile-wrapper { color: #1e293b; }
 
                 .profile-container {
                     max-width: 1100px;
@@ -353,6 +397,11 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     overflow: hidden;
                     backdrop-filter: blur(20px);
                     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+                }
+                body.light-mode .profile-header-premium { 
+                    background: white !important; 
+                    border-color: #e2e8f0; 
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
                 }
 
                 .header-gradient-glow {
@@ -443,6 +492,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     cursor: pointer;
                     transition: 0.2s;
                 }
+                body.light-mode .btn-small-premium { background: #f1f5f9; color: #1e293b; border-color: #e2e8f0; }
                 .btn-small-premium:hover { background: rgba(255,255,255,0.15); }
                 .btn-small-premium.danger { color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
 
@@ -457,13 +507,17 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     margin: 0;
                     letter-spacing: -2px;
                     line-height: 1;
+                    color: white;
                 }
+                body.light-mode .name-premium { color: #0f172a; }
 
                 .email-premium {
                     font-size: 1.2rem;
                     opacity: 0.6;
                     margin: 0.5rem 0 1.5rem;
+                    color: white;
                 }
+                body.light-mode .email-premium { color: #475569; }
 
                 .input-premium {
                     background: rgba(255,255,255,0.05);
@@ -475,6 +529,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     width: 100%;
                     margin-bottom: 0.8rem;
                 }
+                body.light-mode .input-premium { background: white; border-color: #e2e8f0; color: #1e293b; }
 
                 .badges-row-premium {
                     display: flex;
@@ -498,6 +553,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     border-color: rgba(255,255,255,0.1);
                     color: #94a3b8;
                 }
+                body.light-mode .badge-premium.light { background: #f1f5f9; border-color: #e2e8f0; color: #64748b; }
 
                 /* Actions */
                 .actions-side {
@@ -516,8 +572,8 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     cursor: pointer;
                     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
                 }
-
                 .btn-primary-premium.edit { background: white; color: black; }
+                body.light-mode .btn-primary-premium.edit { background: #1e293b; color: white; }
                 .btn-primary-premium.save { color: white; }
 
                 .btn-secondary-premium {
@@ -529,7 +585,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     font-weight: 600;
                     cursor: pointer;
                 }
-
+                body.light-mode .btn-secondary-premium { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
                 .btn-secondary-premium.logout:hover {
                     background: rgba(239, 68, 68, 0.1);
                     border-color: rgba(239, 68, 68, 0.2);
@@ -543,6 +599,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     margin-bottom: 2rem;
                     opacity: 0.8;
                 }
+                body.light-mode .section-title { color: #1e293b; }
 
                 .stats-grid-premium {
                     display: grid;
@@ -557,6 +614,13 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     border-radius: 28px;
                     text-align: center;
                     backdrop-filter: blur(10px);
+                    color: white;
+                }
+                body.light-mode .stat-card-premium { 
+                    background: white; 
+                    border-color: #e2e8f0; 
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+                    color: #1e293b;
                 }
 
                 .stat-icon-premium {
@@ -574,6 +638,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     font-weight: 900;
                     margin-bottom: 0.5rem;
                 }
+                body.light-mode .stat-value-premium { color: #1e293b; }
 
                 .stat-label-premium {
                     color: #64748b;
@@ -595,15 +660,21 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     border: 1px solid rgba(255, 255, 255, 0.05);
                     padding: 2.5rem;
                     border-radius: 32px;
+                    color: white;
                 }
-
+                body.light-mode .settings-card-premium { 
+                    background: white; 
+                    border-color: #e2e8f0; 
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+                    color: #1e293b;
+                }
+                body.light-mode .settings-card-premium h3 { color: #0f172a; }
                 .settings-card-premium h3 {
                     margin: 0 0 2rem;
                     font-size: 1.4rem;
                 }
 
                 .pref-items { display: flex; flex-direction: column; gap: 1.5rem; }
-
                 .pref-item-premium {
                     display: flex;
                     justify-content: space-between;
@@ -611,6 +682,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                 }
 
                 .label-text { display: block; font-weight: 700; font-size: 1.1rem; }
+                body.light-mode .label-text { color: #334155; }
                 .label-sub { display: block; font-size: 0.85rem; color: #64748b; margin-top: 2px; }
 
                 .toggle-pill {
@@ -623,12 +695,15 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     cursor: pointer;
                     transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 }
-
+                body.light-mode .toggle-pill { background: #f1f5f9; border-color: #e2e8f0; color: #64748b; }
                 .toggle-pill.active {
                     color: white;
                     border-color: transparent;
                     transform: scale(1.05);
                     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+                }
+                body.light-mode .toggle-pill.active {
+                    color: white !important;
                 }
 
                 .activity-list-premium { display: flex; flex-direction: column; gap: 1rem; }
@@ -641,13 +716,21 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     border-radius: 14px;
                     border: 1px solid rgba(255,255,255,0.02);
                     transition: 0.2s;
+                    color: white;
                 }
+                body.light-mode .activity-item-premium { 
+                    background: #f8fafc; 
+                    border-color: #f1f5f9; 
+                    color: #475569;
+                }
+                body.light-mode .activity-item-premium .test-name-bold { color: #0f172a; }
                 .activity-item-premium.clickable { cursor: pointer; }
                 .activity-item-premium.clickable:hover { 
                     background: rgba(255,255,255,0.06);
                     border-color: rgba(255,255,255,0.1);
                     transform: translateX(4px);
                 }
+                body.light-mode .activity-item-premium.clickable:hover { background: #f1f5f9; }
 
                 .score-pill { padding: 0.3rem 0.8rem; border-radius: 8px; font-weight: 800; font-size: 0.8rem; }
                 .score-pill.high { background: rgba(16, 185, 129, 0.1); color: #10b981; }
@@ -668,6 +751,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     font-weight: 700;
                     transition: 0.2s;
                 }
+                body.light-mode .btn-utility-premium { background: #f8fafc; border-color: #e2e8f0; color: #1e293b; }
                 .btn-utility-premium:hover { background: rgba(255,255,255,0.08); transform: translateY(-3px); }
 
                 @media (max-width: 1024px) {
@@ -690,7 +774,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
     );
 }
 
-function getRoleStats(user) {
+function getRoleStats(user, adminStats) {
     switch (user.role) {
         case 'student':
             return [
@@ -707,9 +791,9 @@ function getRoleStats(user) {
             ];
         case 'admin':
             return [
-                { icon: '⚡', value: 'Active', label: 'System Status' },
-                { icon: '👥', value: '150+', label: 'Total Users' },
-                { icon: '🔔', value: '0', label: 'Critical Alerts' }
+                { icon: '⚡', value: adminStats?.integrity?.nodePerformance === "Optimal" ? 'Active' : 'Warning', label: 'System Status' },
+                { icon: '👥', value: adminStats ? (adminStats.userCount > 150 ? "150+" : adminStats.userCount) : '...', label: 'Total Users' },
+                { icon: '🔔', value: adminStats ? String(adminStats.criticalAlerts) : '0', label: 'Critical Alerts' }
             ];
         default:
             return [];

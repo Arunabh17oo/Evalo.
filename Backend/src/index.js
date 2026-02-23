@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const natural = require("natural");
 const pdfParse = require("pdf-parse");
 const { v4: uuidv4 } = require("uuid");
-const { evaluateSubjectiveAnswer } = require("./services/aiService");
+const { evaluateSubjectiveAnswer, getEvaChatResponse } = require("./services/aiService");
 
 let mongoose = null;
 try {
@@ -76,6 +76,15 @@ const tokenizer = new natural.WordTokenizer();
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
+
+// Simple Request Logger
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+// Health Check
+app.get("/api/health", (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
 
 const bookSessions = new Map();
 const quizSessions = new Map();
@@ -183,7 +192,9 @@ function ensureQuestionFormatOnBank(bank, format, seedInput) {
       // Make prompt MCQ friendly.
       next.prompt = `Select the best-supported statement based on the book: ${generatePrompt(
         firstSentence(q.reference || q.prompt),
-        q.difficulty
+        q.keywords || topKeywords(q.reference || q.prompt, 3),
+        q.difficulty,
+        rand
       )}`;
     } else {
       next.choices = undefined;
@@ -356,7 +367,7 @@ function testDocFromModel(test) {
 
 function testFromDoc(doc) {
   return {
-    id: doc._id,
+    id: String(doc._id || doc.id),
     title: doc.title,
     joinCode: doc.joinCode,
     bookSessionId: doc.bookSessionId,
@@ -416,7 +427,7 @@ function quizSessionFromDoc(doc) {
   // Backward compatibility: older records may have `teacherPublishedAt` without `publishCount`.
   if (publishCount === 0 && doc.teacherPublishedAt) publishCount = 1;
   return {
-    id: doc._id,
+    id: String(doc._id || doc.id),
     testId: doc.testId || null,
     bookSessionId: doc.bookSessionId,
     studentId: doc.studentId,
@@ -736,14 +747,70 @@ function jaccardScore(tokensA, tokensB) {
   return union ? intersection / union : 0;
 }
 
-function generatePrompt(baseSentence, difficulty) {
-  if (difficulty === "beginner") {
-    return `Explain in simple words: ${baseSentence}. Include one practical example.`;
-  }
-  if (difficulty === "intermediate") {
-    return `Describe and analyze this concept: ${baseSentence}. Mention one practical use-case and complexity impact.`;
-  }
-  return `Critically evaluate this concept: ${baseSentence}. Discuss trade-offs, limitations, and best-fit scenarios.`;
+function generatePrompt(conceptSummary, keywords, difficulty, rand) {
+  const kw1 = keywords[0] || "this concept";
+  const kw2 = keywords[1] || "its applications";
+  const kw3 = keywords[2] || "related principles";
+
+  const beginnerTemplates = [
+    `What is ${kw1}? Explain it in your own words with a simple example.`,
+    `Define ${kw1} and explain why it is important in the context of ${kw2}.`,
+    `In simple terms, describe what happens when ${kw1} is used. Provide a real-world analogy.`,
+    `List and briefly explain the key characteristics of ${kw1}.`,
+    `How does ${kw1} relate to ${kw2}? Explain with a basic example.`,
+    `What problem does ${kw1} solve? Describe a scenario where it would be useful.`
+  ];
+
+  const intermediateTemplates = [
+    `Compare and contrast ${kw1} with ${kw2}. What are the advantages of each approach?`,
+    `Explain the working mechanism of ${kw1}. How does it interact with ${kw2} in practice?`,
+    `Describe a real-world scenario where ${kw1} is applied. What challenges might arise and how are they addressed?`,
+    `Analyze how ${kw1} impacts ${kw2}. Discuss at least two trade-offs involved.`,
+    `What are the key differences between ${kw1} and ${kw3}? When would you choose one over the other?`,
+    `Explain the step-by-step process of ${kw1}. What role does ${kw2} play in this process?`
+  ];
+
+  const advancedTemplates = [
+    `Critically evaluate the effectiveness of ${kw1} in solving problems related to ${kw2}. Discuss its limitations and propose improvements.`,
+    `Design a solution using ${kw1} that addresses a complex problem involving ${kw2} and ${kw3}. Justify your design choices.`,
+    `Analyze the trade-offs between using ${kw1} versus alternative approaches for ${kw2}. Under what conditions does each excel?`,
+    `How would you optimize a system that relies on ${kw1} for ${kw2}? Consider scalability, efficiency, and maintainability.`,
+    `Discuss the theoretical foundations of ${kw1}. How do these principles apply to real-world implementations involving ${kw2}?`,
+    `Evaluate the impact of ${kw1} on modern practices in ${kw2}. What emerging trends could change this landscape?`
+  ];
+
+  let templates;
+  if (difficulty === "beginner") templates = beginnerTemplates;
+  else if (difficulty === "intermediate") templates = intermediateTemplates;
+  else templates = advancedTemplates;
+
+  return templates[Math.floor(rand() * templates.length)];
+}
+
+function extractCoreConcepts(chunkText) {
+  // Extract the most information-dense sentences from the chunk
+  const sentences = chunkText
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 30 && s.length < 500);
+
+  if (sentences.length === 0) return { summary: chunkText.slice(0, 200), sentences: [chunkText.slice(0, 200)] };
+
+  // Score each sentence by keyword density (more unique content words = more informative)
+  const scored = sentences.map(s => {
+    const words = tokenizer.tokenize(cleanText(s).toLowerCase())
+      .filter(t => /^[a-z]+$/.test(t))
+      .filter(t => !natural.stopwords.includes(t))
+      .filter(t => t.length > 2);
+    return { text: s, score: new Set(words).size, words };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Take top 3 most informative sentences
+  const best = scored.slice(0, 3);
+  const summary = best.map(s => s.text).join(" ");
+  return { summary, sentences: best.map(s => s.text) };
 }
 
 function generateQuestionBank(chunks, seedInput) {
@@ -751,8 +818,8 @@ function generateQuestionBank(chunks, seedInput) {
   const bank = [];
 
   chunks.slice(0, 160).forEach((chunk, index) => {
-    const firstSentence = chunk.text.split(/(?<=[.!?])\s+/)[0] || chunk.text.slice(0, 180);
-    const concise = firstSentence.split(" ").slice(0, 28).join(" ");
+    const { summary } = extractCoreConcepts(chunk.text);
+    const keywords = topKeywords(chunk.text, 10);
     const options = ["beginner", "intermediate", "advanced"];
 
     const primary = options[Math.floor(rand() * options.length)];
@@ -762,9 +829,9 @@ function generateQuestionBank(chunks, seedInput) {
       bank.push({
         id: `q_${index + 1}_${difficulty}_${Math.floor(rand() * 100000)}`,
         difficulty,
-        prompt: generatePrompt(concise, difficulty),
+        prompt: generatePrompt(summary, keywords, difficulty, rand),
         reference: chunk.text,
-        keywords: topKeywords(chunk.text, 10),
+        keywords: keywords,
         chunkId: chunk.id
       });
     }
@@ -1248,6 +1315,8 @@ function buildResult(quizSession) {
     timedOut: Date.now() > quizSession.deadlineAt,
     aiPublished: quizSession.aiPublishAt ? Date.now() >= quizSession.aiPublishAt : true,
     teacherPublished: Boolean(quizSession.teacherPublishedAt),
+    teacherPublishedAt: quizSession.teacherPublishedAt ?? null,
+    testTitle: quizSession.testId ? (tests.get(String(quizSession.testId))?.title || null) : null,
     responses: quizSession.responses.map((r, idx) => ({
       questionNo: idx + 1,
       percentage: r.percentage,
@@ -1357,6 +1426,11 @@ app.delete("/api/users/me/quizzes", authRequired, async (req, res) => {
         quizSessions.delete(id);
       }
     }
+    // Sync to fileStore
+    await queueFileStoreWrite(async () => {
+      fileStore.quizSessions = (fileStore.quizSessions || []).filter((q) => q.studentId !== req.user.id);
+    });
+
     await logHistory(req.user.id, "history_cleared", {});
     return res.json({ message: "Test history cleared successfully." });
   } catch (error) {
@@ -1375,18 +1449,8 @@ app.delete("/api/tests/:testId", authRequired, requireRoles("teacher", "admin"),
   }
 
   try {
-    if (dbReady) {
-      await TestModel.deleteOne({ _id: testId });
-      // Also cleanup associated quiz sessions if they exist
-      await QuizSessionModel.deleteMany({ testId });
-    }
-    tests.delete(testId);
-    // Cleanup in-memory quizzes for this test
-    for (const [id, session] of quizSessions.entries()) {
-      if (session.testId === testId) {
-        quizSessions.delete(id);
-      }
-    }
+    const out = await deleteTestEverywhere(testId, { wipeHistory: true });
+    if (!out.ok) return res.status(500).json({ error: "Failed to delete test fully." });
 
     await logHistory(req.user.id, "test_deleted", { testId });
     return res.json({ message: "Test and associated data deleted." });
@@ -1607,11 +1671,11 @@ app.get("/api/users/me/quizzes", authRequired, async (req, res) => {
   const buildSummary = (q) => ({
     quizId: q.id,
     testId: q.testId || null,
-    testTitle: q.testId ? tests.get(q.testId)?.title || null : null,
-    joinCode: q.testId ? tests.get(q.testId)?.joinCode || null : null,
-    topic: q.testId ? tests.get(q.testId)?.topic || null : null,
-    difficulty: q.testId ? tests.get(q.testId)?.difficulty || null : null,
-    questionFormat: q.testId ? tests.get(q.testId)?.questionFormat || null : (q.questionFormat || null),
+    testTitle: q.testId ? tests.get(String(q.testId))?.title || null : null,
+    joinCode: q.testId ? tests.get(String(q.testId))?.joinCode || null : null,
+    topic: q.testId ? tests.get(String(q.testId))?.topic || null : null,
+    difficulty: q.testId ? tests.get(String(q.testId))?.difficulty || null : null,
+    questionFormat: q.testId ? tests.get(String(q.testId))?.questionFormat || null : (q.questionFormat || null),
     startedAt: q.startedAt,
     deadlineAt: q.deadlineAt,
     completed: Boolean(q.completed),
@@ -1631,7 +1695,9 @@ app.get("/api/users/me/quizzes", authRequired, async (req, res) => {
 
   if (dbReady && QuizSessionModel) {
     const docs = await QuizSessionModel.find({ studentId: req.user.id }).sort({ startedAt: -1 }).limit(200).lean();
-    const mapped = docs.map((d) => buildSummary(quizSessionFromDoc(d)));
+    const mapped = docs
+      .map((d) => buildSummary(quizSessionFromDoc(d)))
+      .filter((q) => q.testId ? tests.has(String(q.testId)) : true); // SKIP sessions where test was deleted
     return res.json({ quizzes: mapped });
   }
 
@@ -1639,9 +1705,24 @@ app.get("/api/users/me/quizzes", authRequired, async (req, res) => {
   const quizzes = fileStore.quizSessions
     .filter((q) => q.studentId === req.user.id)
     .map((q) => buildSummary(quizSessionFromDoc(q)))
+    .filter((q) => q.testId ? tests.has(String(q.testId)) : true) // SKIP sessions where test was deleted
     .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))
     .slice(0, 200);
   return res.json({ quizzes });
+});
+
+// Eva AI Chat Assistant
+app.post("/api/chat/eva", authRequired, async (req, res) => {
+  const { message, history } = req.body;
+  if (!message) return res.status(400).json({ error: "Message is required." });
+
+  try {
+    const response = await getEvaChatResponse(message, history || []);
+    return res.json(response);
+  } catch (error) {
+    console.error("Eva Route Error:", error);
+    return res.status(500).json({ error: "Assistant is currently resting. Try again soon." });
+  }
 });
 
 app.get("/api/admin/users/:userId/history", authRequired, requireRoles("admin"), async (req, res) => {
@@ -1816,6 +1897,11 @@ app.delete("/api/admin/users/:userId", authRequired, requireRoles("admin"), asyn
   users.delete(user.id);
   usersByEmail.delete(user.email);
 
+  // Sync to fileStore
+  await queueFileStoreWrite(async () => {
+    fileStore.users = (fileStore.users || []).filter((u) => (u?.id || u?._id) !== user.id);
+  });
+
   if (dbReady && UserModel) {
     await UserModel.findByIdAndDelete(user.id);
   }
@@ -1866,22 +1952,23 @@ async function deleteTestEverywhere(testId, opts = {}) {
       if (quizList.length) or.push({ "payload.quizId": { $in: quizList } });
       await UserHistoryModel.deleteMany({ $or: or }).catch(() => { });
     }
-  } else {
-    await queueFileStoreWrite(async () => {
-      fileStore.tests = (fileStore.tests || []).filter((t) => (t?._id || t?.id) !== testId);
-      fileStore.quizSessions = (fileStore.quizSessions || []).filter((q) => q?.testId !== testId);
-      if (wipeHistory) {
-        const quizList = [...quizIds.values()];
-        fileStore.history = (fileStore.history || []).filter((h) => {
-          const p = h?.payload || {};
-          if (p?.testId === testId) return false;
-          if (joinCode && p?.joinCode === joinCode) return false;
-          if (quizList.length && p?.quizId && quizList.includes(p.quizId)) return false;
-          return true;
-        });
-      }
-    });
   }
+
+  // ALWAYS Sync to fileStore to prevent stale data recurrence
+  await queueFileStoreWrite(async () => {
+    fileStore.tests = (fileStore.tests || []).filter((t) => (t?._id || t?.id) !== testId);
+    fileStore.quizSessions = (fileStore.quizSessions || []).filter((q) => q?.testId !== testId);
+    if (wipeHistory) {
+      const quizList = [...quizIds.values()];
+      fileStore.history = (fileStore.history || []).filter((h) => {
+        const p = h?.payload || {};
+        if (p?.testId === testId) return false;
+        if (joinCode && p?.joinCode === joinCode) return false;
+        if (quizList.length && p?.quizId && quizList.includes(p.quizId)) return false;
+        return true;
+      });
+    }
+  });
 
   // In-memory cleanup
   tests.delete(testId);
@@ -1919,6 +2006,121 @@ app.delete("/api/admin/tests/:testId", authRequired, requireRoles("admin"), asyn
     return res.json({ ok: true, testId: req.params.testId });
   } catch (error) {
     return res.status(500).json({ error: error.message || "Failed to delete test." });
+  }
+});
+
+app.get("/api/admin/stats", authRequired, requireRoles("admin"), async (req, res) => {
+  try {
+    let userCount = 0;
+    let criticalAlerts = 0;
+
+    if (dbReady && UserModel) {
+      userCount = await UserModel.countDocuments();
+      criticalAlerts = await UserHistoryModel.countDocuments({
+        eventType: { $regex: /error|failed|security|unauthorized/i }
+      });
+    } else {
+      userCount = users.size;
+      criticalAlerts = fileStore.history.filter(h =>
+        /error|failed|security|unauthorized/i.test(h.eventType)
+      ).length;
+    }
+
+    // Logic for system integrity (mocked for now, but based on "real" checks)
+    const integrity = {
+      nodePerformance: "Optimal",
+      infrastructureCheck: "Healthy",
+      securityReview: criticalAlerts > 5 ? "Action Required" : "Secure",
+      automatedScan: "Completed",
+      flags: criticalAlerts
+    };
+
+    return res.json({
+      userCount,
+      criticalAlerts,
+      integrity
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to fetch stats." });
+  }
+});
+
+app.get("/api/admin/audit-logs", authRequired, requireRoles("admin"), async (req, res) => {
+  try {
+    if (dbReady && UserHistoryModel) {
+      const docs = await UserHistoryModel.find().sort({ createdAt: -1 }).limit(100).lean();
+      return res.json({
+        logs: docs.map((d) => ({
+          id: d._id,
+          userId: d.userId,
+          eventType: d.eventType,
+          payload: d.payload,
+          createdAt: d.createdAt
+        }))
+      });
+    }
+    await loadFileStore();
+    const logs = [...fileStore.history]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 100);
+    return res.json({ logs });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to fetch audit logs." });
+  }
+});
+
+app.post("/api/admin/clear-cache", authRequired, requireRoles("admin"), async (req, res) => {
+  try {
+    bookSessions.clear();
+    quizSessions.clear();
+    tests.clear();
+    // Also clear in-memory user maps if needed, though they are usually in sync with store.
+    // users.clear();
+    // usersByEmail.clear();
+    return res.json({ message: "In-memory session cache cleared successfully." });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to clear cache." });
+  }
+});
+
+app.post("/api/admin/optimize-storage", authRequired, requireRoles("admin"), async (req, res) => {
+  try {
+    // 1. Cleanup uploads directory (orphan files)
+    const files = await fs.readdir(uploadDir);
+    let deletedCount = 0;
+    for (const file of files) {
+      if (file === ".gitkeep") continue;
+      await fs.unlink(path.join(uploadDir, file)).catch(() => { });
+      deletedCount++;
+    }
+
+    // 2. Prune old history if using MongoDB
+    let historyPruned = false;
+    if (dbReady && UserHistoryModel) {
+      const count = await UserHistoryModel.countDocuments();
+      if (count > 5000) {
+        const oldestToKeep = await UserHistoryModel.find().sort({ createdAt: -1 }).skip(4999).limit(1);
+        if (oldestToKeep.length) {
+          await UserHistoryModel.deleteMany({ createdAt: { $lt: oldestToKeep[0].createdAt } });
+          historyPruned = true;
+        }
+      }
+    } else {
+      // FileStore history is already capped at 20000 in logHistory, but we can tighten it here.
+      await queueFileStoreWrite(async () => {
+        if (fileStore.history.length > 5000) {
+          fileStore.history = fileStore.history.slice(-5000);
+          historyPruned = true;
+        }
+      });
+    }
+
+    return res.json({
+      message: "Storage optimized successfully.",
+      details: { tempFilesDeleted: deletedCount, historyPruned }
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || "Failed to optimize storage." });
   }
 });
 

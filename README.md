@@ -90,7 +90,3 @@ Evalo/
 > **Default Admin Credentials**: `admin@evalo.ai` / `admin123`
 
 *Self-evolving intelligence for modern education.*
-PORT=5050
-MONGODB_URI=mongodb+srv://admin:qqaaQQAA@database.2brcekd.mongodb.net/
-JWT_SECRET=evalo_local_dev_change_me_please
-JWT_EXPIRES_IN=7d

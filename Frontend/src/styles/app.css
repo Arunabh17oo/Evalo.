@@ -28,6 +28,65 @@ body.light-mode {
   color: var(--text-light);
 }
 
+body.light-mode .top-nav {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  backdrop-filter: blur(20px) saturate(130%) !important;
+}
+
+body.light-mode .top-nav .nav-container {
+  color: #1e293b !important;
+}
+
+body.light-mode .logo5d-text .logo5d-title {
+  color: #0f172a !important;
+}
+
+body.light-mode .btn-soft {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+body.light-mode .role-badge {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+body.light-mode h1,
+body.light-mode h2,
+body.light-mode h3 {
+  color: #0f172a !important;
+}
+
+body.light-mode .hero-subtitle-centered {
+  color: #475569 !important;
+}
+
+body.light-mode .stat-card-large {
+  background: white !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light-mode .stat-number-large {
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
+body.light-mode .stat-label-large {
+  color: #64748b !important;
+}
+
+body.light-mode .gradient-text {
+  background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 40%, #7e22ce 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
 body.light-mode .card,
 body.light-mode .profile-header,
 body.light-mode .settings-section,
@@ -274,6 +333,8 @@ body {
   margin: 0 auto;
   display: grid;
   gap: 1.5rem;
+  padding-top: 6.5rem;
+  /* Space for fixed top-nav */
 }
 
 .card {
@@ -524,6 +585,11 @@ button:disabled {
   border-radius: 16px;
   background: rgba(6, 22, 40, 0.44);
   padding: 0.9rem;
+}
+
+body.light-mode .evaluation {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
 }
 
 .big-code {
@@ -958,10 +1024,21 @@ td {
   cursor: pointer;
 }
 
+body.light-mode .feature-card {
+  background: white !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+}
+
 .feature-card:hover {
   transform: translateY(-8px) scale(1.02);
   border-color: rgba(99, 242, 222, 0.5);
   box-shadow: 0 28px 90px rgba(99, 242, 222, 0.25), 0 0 40px rgba(99, 242, 222, 0.15);
+}
+
+body.light-mode .feature-card:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important;
 }
 
 .feature-card::before {
@@ -990,6 +1067,11 @@ td {
   box-shadow: 0 8px 24px rgba(99, 242, 222, 0.2);
 }
 
+body.light-mode .feature-icon {
+  background: #f1f5f9 !important;
+  box-shadow: none !important;
+}
+
 .feature-card h3 {
   margin: 0 0 0.6rem;
   font-size: 1.3rem;
@@ -997,11 +1079,19 @@ td {
   font-weight: 800;
 }
 
+body.light-mode .feature-card h3 {
+  color: #0f172a !important;
+}
+
 .feature-card p {
   margin: 0;
-  color: #d5e7ff;
-  line-height: 1.6;
   font-size: 0.95rem;
+  line-height: 1.6;
+  color: #def0ff;
+}
+
+body.light-mode .feature-card p {
+  color: #475569 !important;
 }
 
 /* Floating Orbs */
@@ -1358,7 +1448,8 @@ td {
 .hero-centered {
   text-align: center;
   max-width: 900px;
-  margin: 8rem auto 3rem;
+  margin: 2rem auto 3rem;
+  /* Adjusted since main-grid now has padding-top */
   padding: 0 1rem;
 }
 
@@ -1440,6 +1531,13 @@ td {
 /* Adjust main grid for fixed nav */
 .app-shell {
   padding-top: 0;
+  display: none;
+  /* Removing this redundant override that was causing overlap issues */
+}
+
+/* Re-appetizing the shell */
+.app-shell {
+  display: block;
 }
 
 .stats-grid-centered {
@@ -1501,6 +1599,18 @@ td {
   opacity: 1;
 }
 
+body.light-mode .test-card {
+  background: white !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light-mode .test-card:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
 /* Card Header */
 .test-card-header {
   display: flex;
@@ -1519,6 +1629,10 @@ td {
   flex: 1;
 }
 
+body.light-mode .test-card-title {
+  color: #0f172a !important;
+}
+
 .test-card-code {
   background: rgba(99, 242, 222, 0.15);
   color: #63f2de;
@@ -1528,6 +1642,12 @@ td {
   font-weight: 600;
   font-family: 'Courier New', monospace;
   white-space: nowrap;
+}
+
+body.light-mode .test-card-code {
+  background: #f1f5f9 !important;
+  color: #0369a1 !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 /* Card Body - Metadata */
@@ -1542,6 +1662,10 @@ td {
   margin-bottom: 10px;
   color: #def0ff;
   font-size: 14px;
+}
+
+body.light-mode .test-meta-row {
+  color: #475569 !important;
 }
 
 .test-meta-row svg,
@@ -2057,6 +2181,11 @@ input:checked+.slider:before {
     font-size: clamp(1.8rem, 6vw, 2.8rem);
   }
 
+  .main-grid {
+    padding-top: 7.5rem;
+    /* More space for tablet navbar */
+  }
+
   .main-grid,
   .topbar {
     width: 96%;
@@ -2072,6 +2201,11 @@ input:checked+.slider:before {
   .nav-container {
     padding: 0 1rem;
     gap: 1rem;
+  }
+
+  .main-grid {
+    padding-top: 11rem;
+    /* Even more space for stacked mobile navbar */
   }
 
   .nav-brand {
@@ -2318,4 +2452,21 @@ input:checked+.slider:before {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.5);
   margin-bottom: 1rem;
+}
+
+/* Global Pill Light Mode Overrides */
+body.light-mode .pill {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light-mode .pill.pill-success {
+  background: rgba(16, 185, 129, 0.1) !important;
+  color: #059669 !important;
+}
+
+body.light-mode .pill.danger {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #dc2626 !important;
 }

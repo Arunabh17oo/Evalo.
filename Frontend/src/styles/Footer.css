@@ -496,3 +496,128 @@
         gap: 1rem;
     }
 }
+/* ========================================
+   LIGHT MODE OVERRIDES
+   ======================================== */
+body.light-mode .evalo-footer {
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    color: #1e293b;
+    border-top: 1px solid #e2e8f0;
+}
+
+body.light-mode .evalo-footer::before {
+    background: linear-gradient(90deg, transparent, #e2e8f0 50%, transparent);
+}
+
+body.light-mode .footer-glow-top {
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.05) 0%, transparent 70%);
+}
+
+body.light-mode .logo-glow-wrap {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+}
+
+body.light-mode .logo-glow-wrap:hover {
+    background: #e2e8f0;
+    border-color: #0ea5e9;
+}
+
+body.light-mode .gradient-text {
+    background: linear-gradient(135deg, #0f172a 0%, #2563eb 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+body.light-mode .premium-tagline {
+    color: #475569;
+}
+
+body.light-mode .brand-summary {
+    color: #64748b;
+}
+
+body.light-mode .social-btn {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #64748b;
+}
+
+body.light-mode .social-btn:hover {
+    background: #e2e8f0;
+    color: #2563eb;
+    border-color: #93c5fd;
+}
+
+body.light-mode .nav-col-title {
+    color: #0f172a;
+}
+
+body.light-mode .nav-col-title:hover {
+    color: #2563eb;
+}
+
+body.light-mode .nav-list-v2 li {
+    color: #475569;
+}
+
+body.light-mode .nav-list-v2 li:hover {
+    color: #2563eb;
+}
+
+body.light-mode .premium-security-card {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+}
+
+body.light-mode .card-content h5 {
+    color: #0f172a;
+}
+
+body.light-mode .card-content p {
+    color: #64748b;
+}
+
+body.light-mode .footer-dashboard {
+    background: #f1f5f9;
+    border-block: 1px solid #e2e8f0;
+}
+
+body.light-mode .dash-label {
+    color: #94a3b8;
+}
+
+body.light-mode .dash-stack {
+    color: #64748b;
+}
+
+body.light-mode .dash-stack span:not(.separator):hover {
+    color: #2563eb;
+}
+
+body.light-mode .status-indicator {
+    background: #ffffff;
+    border-color: #e2e8f0;
+}
+
+body.light-mode .tag-inner {
+    background: #ffffff;
+    color: #2563eb;
+}
+
+body.light-mode .copyright-strip p {
+    color: #94a3b8;
+}
+
+body.light-mode .back-to-top {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #2563eb;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .back-to-top:hover {
+    border-color: #2563eb;
+    background: #f8fafc;
+}

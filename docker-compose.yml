@@ -4,7 +4,7 @@ services:
     ports:
       - "5050:5050"
     volumes:
-      - ./backend:/app
+      - ./Backend:/app
       - /app/node_modules
     environment:
       - PORT=5050
