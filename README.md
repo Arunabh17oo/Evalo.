@@ -15,8 +15,10 @@ Evalo doesn't just grade; it understands.
 ### 🛡️ High-Integrity Proctoring & Cyber Security
 Maintain absolute exam integrity with our multi-layered security suite:
 - **Live Risk Scoring**: Real-time behavior analysis that calculates a "Risk Score" based on user actions.
-- **Event Logging**: Detailed tracking of tab switches, window blurs, and unauthorized attempts.
+- **AI Computer Vision (Coco-SSD)**: Integrated **TensorFlow.js** for real-time detection of multiple faces and mobile phones during exams.
+- **Event Logging**: Detailed tracking of tab switches, window blurs, and unauthorized camera behavior.
 - **Fullscreen Enforcement**: Mandatory fullscreen mode to prevent external distractions.
+- **Late Join Blocking**: Automated server-side enforcement to block students from joining after the scheduled test end time.
 - **Global Security Controls**: Admins can toggle sensitive features like **Copy-Paste** across the entire platform instantly.
 
 #### Advanced Security Infrastructure
@@ -26,6 +28,12 @@ Maintain absolute exam integrity with our multi-layered security suite:
 - **Strict Data Sanitization**: Deep NoSQLi and XSS prevention via strict input sanitization on all subjective answers and data layers.
 - **Container Security**: Non-root Docker execution and dependency scanning to mitigate infrastructure vulnerabilities.
 
+### 🤖 Eva - Your AI Knowledge Assistant
+The platform now features **Eva**, a dedicated glassmorphic AI chatbot:
+- **Project Intelligence**: Eva is trained on the Evalo architecture and can assist users with platform queries, proctoring rules, and technical support.
+- **Seamless Integration**: Fixed support access with direct fallbacks to **Arunabh17oo@gmail.com**.
+- **Interactive UI**: Features a sleek, minimizable interface with real-time AI responses.
+
 ### 💎 Premium User Experience
 Built with a "Design-First" philosophy, featuring a fully immersive environment:
 - **Role-Based 3D Backgrounds**:
@@ -34,7 +42,8 @@ Built with a "Design-First" philosophy, featuring a fully immersive environment:
   - 🏛️ **Teacher ("The Architecture")**: A structured, analytical grid with golden accents, representing control and oversight.
 - **Glassmorphic UI**: Breathtaking interface with real-time blur effects, smooth gradients, and **Framer Motion** animations.
 - **Premium Typography**: Typographically verified with the **Outfit** font family for a modern, clean aesthetic.
-- **Smart Notifications**: Intelligent toast system with deduplication and animated entry/exits.
+- **Light & Dark Mode Parity**: Fully optimized backgrounds and component themes that ensure 100% legibility and premium aesthetics in both light and dark environments.
+- **Smart Notifications**: Intelligent toast system with animated entry/exits and "Copy-to-Clipboard" shortcuts for all test join codes.
 
 ### 📊 Analytics & Reporting
 - **Question-wise Analysis**: Every answer receives deep AI feedback, helping students understand *why* they scored what they did.
@@ -48,7 +57,7 @@ Built with a "Design-First" philosophy, featuring a fully immersive environment:
 - **Backend**: Node.js, Express, Multer (File Processing), Natural (NLP).
 - **Persistence**: Dual-support for **MongoDB** (Production-ready) or **Local JSON Storage**.
 - **Containerization**: Fully **Dockerized** for seamless development and deployment.
-- **AI**: OpenAI API integration for advanced subjective analysis.
+- **AI/ML**: Integration with **OpenAI API** for subjective scoring and **TFJS (Coco-SSD)** for on-device computer vision proctoring.
 
 ## 🚀 Setup & Installation
 
