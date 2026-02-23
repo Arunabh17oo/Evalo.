@@ -10,7 +10,8 @@ import { OrbitControls } from "@react-three/drei";
 import KnowledgeOrbit from "./components/KnowledgeOrbit";
 import SoundscapeEngine from "./components/SoundscapeEngine";
 
-
+import * as tf from "@tensorflow/tfjs";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
 
 const AnimatedScene = lazy(() => import("./components/AnimatedScene"));
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5050/api";
@@ -962,6 +963,7 @@ export default function App() {
   const timerIntervalRef = useRef(null);
   const proctorListenersRef = useRef([]);
   const lastAutoSaveAnswerRef = useRef("");
+  const cocoModelRef = useRef(null);
 
   const isAdmin = user?.role === "admin";
   const isTeacher = user?.role === "teacher" || user?.role === "admin";
@@ -1828,7 +1830,11 @@ export default function App() {
       ["keydown", keyHandler, document]
     ];
 
-    monitorIntervalRef.current = setInterval(() => {
+    cocoSsd.load().then((model) => {
+      cocoModelRef.current = model;
+    }).catch(e => console.error("Failed to load COCO-SSD model:", e));
+
+    monitorIntervalRef.current = setInterval(async () => {
       const stream = mediaStreamRef.current;
       if (!stream) {
         sendProctorEvent("media_muted", { reason: "stream_missing" }, nextQuizId);
@@ -1842,6 +1848,27 @@ export default function App() {
       }
       if (!audioTrack || audioTrack.muted || audioTrack.readyState !== "live") {
         sendProctorEvent("media_muted", { reason: "audio_track_inactive" }, nextQuizId);
+      }
+
+      // Run ML detection if video is playing and model is loaded
+      if (videoRef.current && videoRef.current.readyState === 4 && cocoModelRef.current) {
+        try {
+          const predictions = await cocoModelRef.current.detect(videoRef.current);
+          const persons = predictions.filter(p => p.class === "person" && p.score > 0.6);
+          const phones = predictions.filter(p => p.class === "cell phone" && p.score > 0.5);
+
+          if (persons.length > 1) {
+            sendProctorEvent("multiple_faces", { count: persons.length }, nextQuizId);
+          } else if (persons.length === 0) {
+            sendProctorEvent("no_face", { reason: "ml_no_person_detected" }, nextQuizId);
+          }
+
+          if (phones.length > 0) {
+            sendProctorEvent("mobile_phone", { count: phones.length }, nextQuizId);
+          }
+        } catch (err) {
+          console.warn("ML proctoring frame error:", err);
+        }
       }
     }, 12000);
 
@@ -2389,7 +2416,16 @@ export default function App() {
                                     <div className="list-main">
                                       <div className="list-title">{t.title}</div>
                                       <div className="pill-wrap">
-                                        <span className="pill">Code: {t.joinCode}</span>
+                                        <span className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          Code: {t.joinCode}
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(t.joinCode); pushToast("Code Copied", "success"); }}
+                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}
+                                            title="Copy Code"
+                                          >
+                                            📋
+                                          </button>
+                                        </span>
                                         {t.totalMarks ? <span className="pill">Marks: {t.totalMarks}</span> : null}
                                         {t.startsAt ? <span className="pill">Starts: {formatShortDateTime(t.startsAt)}</span> : null}
                                         <span className="pill">Attempts: {t.attempts ?? 0}</span>
@@ -2826,7 +2862,7 @@ export default function App() {
                               </p>
                             </>
                           )}
-                          <div className="row">
+                          <div className="row" style={{ marginBottom: '1.5rem' }}>
                             <button type="button" onClick={createTest} disabled={busy}>
                               {busy ? "Saving..." : editingTestId ? "Save Changes" : "Create / Schedule Test"}
                             </button>
@@ -2856,18 +2892,43 @@ export default function App() {
                         </div>
 
                         {createdTest ? (
-                          <div className="evaluation">
-                            <h3>Latest Test Created</h3>
-                            <p>{createdTest.title}</p>
-                            <p className="big-code">Join Code: {createdTest.joinCode}</p>
-                            {createdTest.topic ? <p className="hint">Topic: {createdTest.topic}</p> : null}
-                            {createdTest.difficulty ? <p className="hint">Difficulty: {createdTest.difficulty}</p> : null}
-                            {createdTest.questionFormat ? <p className="hint">Type: {createdTest.questionFormat}</p> : null}
-                            {createdTest.totalMarks ? (
-                              <p className="hint">
-                                Total Marks: {createdTest.totalMarks} | Marks/Q: {createdTest.marksPerQuestion}
-                              </p>
-                            ) : null}
+                          <div className="evaluation card" style={{ border: '2px solid rgba(142, 255, 217, 0.3)', padding: '1rem' }}>
+                            <div className="success-card-content">
+                              <div className="success-icon-badge" style={{ fontSize: '2rem', marginBottom: '0.2rem' }}>✨</div>
+                              <h3 className="test-success-title">Test Created Successfully!</h3>
+                              <p className="test-title-highlight">“{createdTest.title}”</p>
+
+                              <div className="join-code-wrapper">
+                                <span className="join-code-tag">ACTIVE JOIN CODE</span>
+                                <code className="big-code">{createdTest.joinCode}</code>
+                                <button
+                                  className="copy-button-large"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(createdTest.joinCode);
+                                    pushToast("Code Copied", "success");
+                                  }}
+                                  title="Copy Join Code"
+                                >
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                  </svg>
+                                  Copy Code
+                                </button>
+                              </div>
+
+                              <div className="meta-badges-row">
+                                {createdTest.topic ? <span className="pill">Topic: {createdTest.topic}</span> : null}
+                                {createdTest.difficulty ? <span className="pill">Diff: {createdTest.difficulty}</span> : null}
+                                {createdTest.questionFormat ? <span className="pill">Type: {createdTest.questionFormat}</span> : null}
+                                {createdTest.totalMarks ? (
+                                  <span className="pill">
+                                    Marks: {createdTest.totalMarks} | Q: {createdTest.marksPerQuestion}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
                           </div>
                         ) : null}
                       </div>
@@ -2884,8 +2945,15 @@ export default function App() {
                                   {/* Card Header */}
                                   <div className="test-card-header">
                                     <h4 className="test-card-title">{test.title}</h4>
-                                    <div className="test-card-code">
+                                    <div className="test-card-code" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                       {test.joinCode}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(test.joinCode); pushToast("Code Copied", "success"); }}
+                                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontSize: '1.1rem', color: 'var(--text)' }}
+                                        title="Copy Code"
+                                      >
+                                        📋
+                                      </button>
                                     </div>
                                   </div>
 
@@ -3404,7 +3472,18 @@ export default function App() {
                                           <span className="pill" style={{ background: 'rgba(99,242,222,0.15)', color: '#63f2de' }}>✓ Submitted — Pending Review</span>
                                         )}
 
-                                        {a.joinCode ? <span className="pill" style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>Code: {a.joinCode}</span> : null}
+                                        {a.joinCode ? (
+                                          <span className="pill" style={{ fontFamily: 'monospace', letterSpacing: '0.1em', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                            Code: {a.joinCode}
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(a.joinCode); pushToast("Code Copied", "success"); }}
+                                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}
+                                              title="Copy Code"
+                                            >
+                                              📋
+                                            </button>
+                                          </span>
+                                        ) : null}
                                         {a.startedAt ? <span className="pill" style={{ fontSize: '0.75em' }}>🕐 {new Date(a.startedAt).toLocaleString()}</span> : null}
                                         {a.topic ? <span className="pill">Topic: {a.topic}</span> : null}
                                         {a.difficulty ? <span className="pill">Diff: {a.difficulty}</span> : null}

@@ -12,6 +12,8 @@
   "dependencies": {
     "@react-three/drei": "^9.121.4",
     "@react-three/fiber": "^8.17.14",
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.8.1",
     "framer-motion": "^12.4.2",
     "jspdf": "^4.1.0",

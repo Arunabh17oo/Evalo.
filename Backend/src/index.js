@@ -1341,7 +1341,8 @@ function registerProctorEvent(quizSession, type, meta = {}) {
     paste_attempt: 8,
     context_menu: 3,
     no_face: 10,
-    multiple_faces: 18,
+    multiple_faces: 20,
+    mobile_phone: 30,
     suspicious_noise: 7
   };
 
@@ -1355,9 +1356,25 @@ function registerProctorEvent(quizSession, type, meta = {}) {
   });
 
   let warning = "";
+  let autoCancel = false;
   const risk = quizSession.proctor.riskScore;
 
-  if (risk >= 80 && !quizSession.proctor.warningMessages.includes("Critical warning")) {
+  if (type === "mobile_phone") {
+    const mobileWarnings = quizSession.proctor.events.filter(e => e.type === "mobile_phone").length;
+    if (mobileWarnings >= 3) {
+      warning = "Auto-cancelled: Mobile phone detected 3 times";
+      autoCancel = true;
+    } else {
+      warning = `Warning: Mobile phone detected (${mobileWarnings}/3)`;
+      quizSession.proctor.warningMessages.push(`Mobile phone detected`);
+    }
+  } else if (type === "multiple_faces") {
+    warning = "Warning: More than 1 person in the camera";
+    quizSession.proctor.warningMessages.push("Multiple persons detected");
+  } else if (risk >= 100) {
+    warning = "Auto-cancelled: Cheating risk reached 100%";
+    autoCancel = true;
+  } else if (risk >= 80 && !quizSession.proctor.warningMessages.includes("Critical warning")) {
     warning = "Critical warning: suspicious behavior detected repeatedly.";
     quizSession.proctor.warningMessages.push("Critical warning");
   } else if (risk >= 55 && !quizSession.proctor.warningMessages.includes("High warning")) {
@@ -1368,14 +1385,21 @@ function registerProctorEvent(quizSession, type, meta = {}) {
     quizSession.proctor.warningMessages.push("Early warning");
   }
 
-  if (warning) {
+  if (warning && !autoCancel && !quizSession.completed) {
     quizSession.proctor.warningCount += 1;
+  }
+
+  if (autoCancel && !quizSession.completed) {
+    quizSession.completed = true;
+    quizSession.completedAt = Date.now();
+    quizSession.proctor.warningMessages.push(warning);
   }
 
   return {
     riskScore: quizSession.proctor.riskScore,
     warning,
-    warningCount: quizSession.proctor.warningCount
+    warningCount: quizSession.proctor.warningCount,
+    cancelled: autoCancel
   };
 }
 
@@ -2408,6 +2432,14 @@ app.post("/api/tests/join", authRequired, requireRoles("student", "admin"), asyn
     return res.status(403).json({ error: `Test not started yet. Starts at ${test.startsAt}` });
   }
 
+  // Check if test has already ended
+  if (test.startsAt && test.durationMinutes) {
+    const endsAt = new Date(test.startsAt).getTime() + test.durationMinutes * 60 * 1000;
+    if (Date.now() > endsAt) {
+      return res.status(403).json({ error: "The Test has Already Ended , You Are Late" });
+    }
+  }
+
   let bookSession = bookSessions.get(test.bookSessionId);
   if (!bookSession && dbReady) {
     const bookDoc = await BookSessionModel.findById(test.bookSessionId).lean();
@@ -2541,7 +2573,7 @@ app.post("/api/quiz/:quizId/proctor-event", authRequired, requireRoles("student"
   logHistory(req.user.id, "proctor_event", { quizId: quizSession.id, type, riskScore: summary.riskScore }).catch(
     () => { }
   );
-  return res.json({ ...summary, completed: false });
+  return res.json({ ...summary, completed: summary.cancelled || false });
 });
 
 // Auto-save endpoint - allows partial saves without validation
@@ -3321,7 +3353,6 @@ async function bootstrap() {
     throw error;
   }
 }
-
 bootstrap().catch((error) => {
   console.error("Failed to start backend:", error);
   process.exit(1);
