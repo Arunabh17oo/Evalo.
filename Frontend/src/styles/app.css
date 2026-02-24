@@ -848,36 +848,85 @@ td {
 
 .mcq-box {
   border: 1px solid rgba(143, 214, 255, 0.2);
-  border-radius: 16px;
-  background: rgba(6, 22, 40, 0.36);
-  padding: 0.85rem;
+  border-radius: 20px;
+  background: rgba(6, 22, 40, 0.45);
+  padding: 1.25rem;
+  margin-top: 1rem;
 }
 
 .mcq-list {
-  display: grid;
-  gap: 0.6rem;
-  margin-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .mcq-option {
   display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 0.7rem;
-  align-items: start;
-  padding: 0.7rem 0.75rem;
-  border-radius: 14px;
-  border: 1px solid rgba(160, 208, 255, 0.18);
-  background: rgba(7, 26, 45, 0.45);
+  grid-template-columns: auto 1fr;
+  gap: 1.2rem;
+  align-items: center;
+  padding: 1.1rem 1.4rem;
+  border-radius: 16px;
+  border: 1px solid rgba(160, 208, 255, 0.2);
+  background: rgba(13, 27, 48, 0.6);
   cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
 }
 
-.mcq-option input {
-  margin-top: 0.2rem;
+.mcq-option:hover {
+  background: rgba(18, 38, 66, 0.8);
+  border-color: rgba(99, 242, 222, 0.4);
+  transform: translateX(4px);
 }
 
 .mcq-option.active {
-  border-color: rgba(99, 242, 222, 0.35);
-  background: rgba(25, 60, 76, 0.45);
+  background: linear-gradient(135deg, rgba(30, 60, 90, 0.7) 0%, rgba(13, 27, 48, 0.8) 100%);
+  border-color: #63f2de;
+  box-shadow: 0 8px 32px rgba(99, 242, 222, 0.2);
+}
+
+.mcq-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.mcq-option input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #63f2de;
+  margin: 0;
+}
+
+.option-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #c8fff0;
+  flex-shrink: 0;
+}
+
+.mcq-option.active .option-letter {
+  background: #63f2de;
+  color: #021225;
+  border-color: #63f2de;
+}
+
+.option-text {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: #f1fbff;
+  font-weight: 500;
 }
 
 .explain summary {

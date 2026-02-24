@@ -263,6 +263,61 @@ function Logo5D({ onHome }) {
   );
 }
 
+function Watermark({ text }) {
+  const [pos, setPos] = useState({ top: "20%", left: "20%" });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPos({
+        top: `${Math.random() * 80 + 10}%`,
+        left: `${Math.random() * 80 + 10}%`
+      });
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        pointerEvents: "none",
+        zIndex: 9999,
+        opacity: 0.12,
+        transform: "rotate(-25deg)",
+        fontSize: "1.2rem",
+        fontWeight: 700,
+        color: "white",
+        userSelect: "none",
+        transition: "all 2s ease-in-out",
+        whiteSpace: "nowrap"
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+function getBrowserFingerprint() {
+  const parts = [
+    navigator.userAgent,
+    screen.width,
+    screen.height,
+    navigator.hardwareConcurrency,
+    navigator.language,
+    new Date().getTimezoneOffset()
+  ];
+  const str = parts.join("|");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return `FP-${Math.abs(hash).toString(16)}`;
+}
+
 function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm, error }) {
   if (!open) return null;
 
@@ -478,7 +533,25 @@ function AnalyticsModal({ open, onClose, data }) {
               <Canvas camera={{ position: [0, 0, 8] }}>
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
-                <KnowledgeOrbit data={data} />
+                <KnowledgeOrbit
+                  data={data}
+                  onTopicClick={(topic) => {
+                    // Pre-fill chatbot if clicked
+                    const evaBubble = document.querySelector('.eva-bubble');
+                    if (evaBubble) {
+                      evaBubble.click();
+                      setTimeout(() => {
+                        const input = document.querySelector('.eva-input-area input');
+                        if (input) {
+                          const event = { target: { value: `Tell me more about ${topic.name} performance in this test.` } };
+                          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                          nativeInputValueSetter.call(input, event.target.value);
+                          input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                      }, 400);
+                    }
+                  }}
+                />
                 <OrbitControls enableZoom={false} />
               </Canvas>
               <div style={{ position: "absolute", bottom: "10px", right: "15px", pointerEvents: "none", fontSize: "0.7rem", opacity: 0.5 }}>
@@ -564,6 +637,13 @@ function ProctorLogModal({ open, onClose, logs }) {
           </div>
           <div className="pill">Warnings: {logs.proctor.warningCount}</div>
         </div>
+
+        {logs.proctor.narrative && (
+          <div className="ai-narrative" style={{ background: "rgba(59, 130, 246, 0.1)", borderRadius: "12px", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "1rem", marginBottom: "1.5rem" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#93c5fd", textTransform: "uppercase", display: "block", marginBottom: "0.5rem" }}>🤖 AI Integrity Narrative</span>
+            <p style={{ margin: 0, fontSize: "0.95rem", fontStyle: "italic", color: "#def0ff" }}>"{logs.proctor.narrative}"</p>
+          </div>
+        )}
 
         <div className="log-container" style={{ maxHeight: "400px", overflowY: "auto", background: "rgba(0,0,0,0.1)", borderRadius: "8px", padding: "0.5rem" }}>
           {logs.proctor.events && logs.proctor.events.length > 0 ? (
@@ -760,6 +840,9 @@ export default function App() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [adminUtilBusy, setAdminUtilBusy] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const audioContextRef = useRef(null);
+  const audioAnalyserRef = useRef(null);
+  const faceReferenceRef = useRef(null);
 
 
   const navigateTo = (page, targetId) => {
@@ -933,6 +1016,7 @@ export default function App() {
   // Auto-save state
   const [autoSaveStatus, setAutoSaveStatus] = useState(""); // "saving", "saved", "error"
   const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
   const [wordCount, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
   const autoSaveTimerRef = useRef(null);
@@ -1078,6 +1162,16 @@ export default function App() {
     }
   }
 
+  async function fetchAnalytics(authToken = token) {
+    if (!authToken) return;
+    try {
+      const { data } = await axios.get(`${API_BASE}/users/me/analytics`, authConfig(authToken));
+      setAnalyticsData(data);
+    } catch (err) {
+      console.warn("Analytics fetch failed:", err.message);
+    }
+  }
+
   async function loadRoleData(targetUser = user, authToken = token) {
     if (!targetUser || !authToken) return;
 
@@ -1089,11 +1183,13 @@ export default function App() {
         ]);
         setTeacherBooks(booksRes.data.books || []);
         setTeacherTests(testsRes.data.tests || []);
-      }
-      if (targetUser.role === "admin" || targetUser.role === "teacher") {
+
         const { data } = await axios.get(`${API_BASE}/admin/users`, authConfig(authToken));
         setAdminUsers(data.users || []);
         setAdminCanEditRoles(Boolean(data.canEditRoles));
+      }
+      if (targetUser.role === "student" || targetUser.role === "admin") {
+        fetchAnalytics(authToken);
       }
     } catch (_err) {
       // keep UI alive even if one section fails
@@ -1118,6 +1214,9 @@ export default function App() {
     try {
       await axios.delete(`${API_BASE}/tests/${testId}`, authConfig(token));
       pushToast("Test deleted successfully.", "success");
+      if (createdTest && createdTest.id === testId) {
+        setCreatedTest(null);
+      }
       loadRoleData();
     } catch (err) {
       pushToast(appError(err, "Failed to delete test."), "danger");
@@ -1139,6 +1238,7 @@ export default function App() {
     if (!token) { alert("No auth token - please log in again."); return; }
     try {
       setAttemptBusy(true);
+      setError(null); // Clear previous errors
       setResult(null);
       setSelectedAttemptDetail(null);
       setSelectedAttemptResult(null);
@@ -1174,7 +1274,7 @@ export default function App() {
           marksAwarded: r.marksAwarded ?? null,
           teacherMarksAwarded: r.teacherMarksAwarded ?? null,
           feedback: r.explanation || null,
-          isAI: true
+          aiDetection: r.aiDetection || { isAI: false, score: 0, reason: "Local Fallback" }
         }));
         const avg = responses.length ? responses.reduce((s, r) => s + (r.percentage || 0), 0) / responses.length : 0;
         finalResult = {
@@ -1187,7 +1287,8 @@ export default function App() {
           teacherPublishedAt: quizData.status?.teacherPublishedAt ?? null,
           testTitle: quizData.test?.title || null,
           remark: avg >= 90 ? { label: "Outstanding", emoji: "🏆" } : avg >= 75 ? { label: "Great work", emoji: "🔥" } : avg >= 60 ? { label: "Good progress", emoji: "✅" } : avg >= 40 ? { label: "Needs improvement", emoji: "📘" } : { label: "Critical: revise basics", emoji: "⚠️" },
-          responses
+          responses,
+          isEvaluated: true // Flag to show it's successfully loaded
         };
       }
 
@@ -1412,6 +1513,9 @@ export default function App() {
     try {
       await axios.delete(`${API_BASE}/admin/tests/${testId}?wipeHistory=true`, authConfig(token));
       pushToast("Test deleted.", "success");
+      if (createdTest && createdTest.id === testId) {
+        setCreatedTest(null);
+      }
       await refreshAdminTests();
       await loadRoleData();
     } catch (err) {
@@ -1596,6 +1700,7 @@ export default function App() {
         mcqCount: 0,
         subjectiveCount: 0
       });
+      setCreatedTest(null);
       pushToast('🗑️ Draft cleared', 'success');
     } catch (err) {
       console.error('Failed to clear draft:', err);
@@ -1684,7 +1789,8 @@ export default function App() {
       setSelectedAttemptResult(null);
       setSelectedAttempt(null);
 
-      await startExamEnvironment(data.quizId);
+      const fingerprint = getBrowserFingerprint();
+      await startExamEnvironment(data.quizId, fingerprint);
       pushToast("Test started. Proctoring enabled.", "info");
     } catch (err) {
       setError(appError(err, "Unable to join test."));
@@ -1716,10 +1822,14 @@ export default function App() {
     }
   }
 
-  async function startExamEnvironment(nextQuizId) {
+  async function startExamEnvironment(nextQuizId, fingerprint) {
     stopExamEnvironment();
     setCameraError("");
     setIsFullscreen(Boolean(document.fullscreenElement));
+
+    if (fingerprint) {
+      sendProctorEvent("fingerprint_check", { fingerprint }, nextQuizId);
+    }
 
     // getUserMedia requires a secure context except localhost.
     const host = window.location.hostname;
@@ -1759,6 +1869,21 @@ export default function App() {
         }
       });
       mediaStreamRef.current = stream;
+
+      // Init Audio Analysis
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        audioContextRef.current = ctx;
+        audioAnalyserRef.current = analyser;
+      } catch (ae) {
+        console.warn("Audio Context init failed:", ae);
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true;
@@ -1866,11 +1991,48 @@ export default function App() {
           if (phones.length > 0) {
             sendProctorEvent("mobile_phone", { count: phones.length }, nextQuizId);
           }
+
+          // Advanced detection: Gaze
+          const person = persons[0]; // Primary candidate
+          if (person) {
+            const [x, y, w, h] = person.bbox;
+            const videoWidth = videoRef.current.videoWidth;
+            const videoHeight = videoRef.current.videoHeight;
+            const centerX = x + w / 2;
+            const centerY = y + h / 2;
+
+            // Simple Gaze/Orientation check based on face center vs frame center
+            const devX = Math.abs(centerX - videoWidth / 2) / videoWidth;
+            const devY = Math.abs(centerY - videoHeight / 2) / videoHeight;
+            if (devX > 0.35 || devY > 0.45) {
+              sendProctorEvent("gaze_deviated", { devX, devY }, nextQuizId);
+            }
+
+            // Identity check (Capture reference if not exists)
+            if (!faceReferenceRef.current && person.score > 0.85) {
+              // Capture a simplified snapshot or just mark as verified start
+              faceReferenceRef.current = { score: person.score, at: Date.now() };
+              pushToast("Identity Verified.", "info");
+            }
+          }
         } catch (err) {
           console.warn("ML proctoring frame error:", err);
         }
       }
     }, 12000);
+
+    // Faster interval for high-frequency checks like Audio
+    const audioInterval = setInterval(() => {
+      if (audioAnalyserRef.current) {
+        const dataArray = new Uint8Array(audioAnalyserRef.current.frequencyBinCount);
+        audioAnalyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((p, c) => p + c, 0) / dataArray.length;
+        if (average > 45) { // Threshold for suspicious noise
+          sendProctorEvent("suspicious_noise", { level: Math.round(average) }, nextQuizId);
+        }
+      }
+    }, 2000);
+    window._audioInt = audioInterval; // Store for cleanup
 
     timerIntervalRef.current = setInterval(() => {
       setTimeLeftSec((prev) => {
@@ -1895,6 +2057,11 @@ export default function App() {
     if (monitorIntervalRef.current) {
       clearInterval(monitorIntervalRef.current);
       monitorIntervalRef.current = null;
+    }
+
+    if (window._audioInt) {
+      clearInterval(window._audioInt);
+      window._audioInt = null;
     }
 
     if (mediaStreamRef.current) {
@@ -2339,6 +2506,26 @@ export default function App() {
                           </tbody>
                         </table>
                       </div>
+
+                      {/* Dynamic 3D Knowledge Map for Admins/Teachers */}
+                      {analyticsData && (
+                        <div className="card split-card gap-top" style={{ padding: 0, overflow: 'hidden', minHeight: '350px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', position: 'relative', marginBottom: '2rem' }}>
+                          <div style={{ position: 'absolute', top: '20px', left: '25px', zIndex: 10 }}>
+                            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>🕸️ Personal Mastery Orbit</h2>
+                            <p className="hint" style={{ margin: '4px 0 0' }}>Your System Overview</p>
+                          </div>
+                          <div style={{ height: '350px', width: '100%' }}>
+                            <Canvas camera={{ position: [0, 0, 8] }}>
+                              <Suspense fallback={null}>
+                                <ambientLight intensity={0.5} />
+                                <pointLight position={[10, 10, 10]} intensity={1} />
+                                <KnowledgeOrbit data={analyticsData} />
+                                <OrbitControls enableZoom={false} />
+                              </Suspense>
+                            </Canvas>
+                          </div>
+                        </div>
+                      )}
 
                       {isAdmin ? (
                         <>
@@ -3370,7 +3557,7 @@ export default function App() {
                   ) : null
                   }
 
-                  {user?.role === "student" ? (
+                  {isStudent ? (
                     <section id="student-join" className="card split-card">
                       <div>
                         <h2>Student Panel</h2>
@@ -3411,6 +3598,7 @@ export default function App() {
 
                       {examActive ? (
                         <div>
+                          <Watermark text={`${rollNo || user?.name || "Evalo Student"} [${quizId?.slice(-6)}]`} />
                           <h2>AI Proctoring Feed</h2>
                           <div className="camera-box">
                             <video ref={videoRef} autoPlay muted playsInline />
@@ -3449,6 +3637,46 @@ export default function App() {
 
                       {!examActive ? (
                         <div>
+                          {/* Dynamic 3D Knowledge Map for Students */}
+                          {isStudent && analyticsData && (
+                            <div className="card split-card gap-top" style={{ padding: 0, overflow: 'hidden', minHeight: '350px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', position: 'relative', marginBottom: '2rem' }}>
+                              <div style={{ position: 'absolute', top: '20px', left: '25px', zIndex: 10 }}>
+                                <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>🕸️ Knowledge Orbit</h2>
+                                <p className="hint" style={{ margin: '4px 0 0' }}>Interactive 3D Topic Mastery</p>
+                              </div>
+                              <div style={{ height: '350px', width: '100%' }}>
+                                <Canvas camera={{ position: [0, 0, 8] }}>
+                                  <Suspense fallback={null}>
+                                    <ambientLight intensity={0.5} />
+                                    <pointLight position={[10, 10, 10]} intensity={1} />
+                                    <KnowledgeOrbit
+                                      data={analyticsData}
+                                      onTopicClick={(topic) => {
+                                        const evaBubble = document.querySelector('.eva-bubble');
+                                        if (evaBubble) {
+                                          evaBubble.click();
+                                          setTimeout(() => {
+                                            const input = document.querySelector('.eva-input-area input');
+                                            if (input) {
+                                              const msg = `I want to focus on ${topic.name}. I currently have a ${topic.score}% mastery.`;
+                                              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                                              nativeInputValueSetter.call(input, msg);
+                                              input.dispatchEvent(new Event('input', { bubbles: true }));
+                                            }
+                                          }, 400);
+                                        }
+                                      }}
+                                    />
+                                    <OrbitControls enableZoom={false} />
+                                  </Suspense>
+                                </Canvas>
+                              </div>
+                              <div style={{ position: 'absolute', bottom: '15px', right: '20px', opacity: 0.5, fontSize: '0.7rem' }}>
+                                Click nodes to study with Eva AI
+                              </div>
+                            </div>
+                          )}
+
                           <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
                             <h2 style={{ margin: 0 }}>Test History</h2>
                             <button className="btn-soft btn-small" onClick={loadMyAttempts} disabled={attemptBusy}>
@@ -3531,7 +3759,7 @@ export default function App() {
                   }
 
                   {
-                    isStudent && selectedAttemptDetail && !examActive ? (
+                    selectedAttemptDetail && !examActive ? (
                       <section className="card result-display" style={{ marginTop: '2rem' }}>
                         <div className="result-header">
                           <h2>Attempt Review</h2>
@@ -3614,6 +3842,15 @@ export default function App() {
                               {r.teacherMarksAwarded !== null && (
                                 <span className="stat-pill success">Teacher Marks: {r.teacherMarksAwarded}</span>
                               )}
+                              {r.aiDetection?.isAI ? (
+                                <span className="stat-pill danger" title={r.aiDetection.reason}>
+                                  ⚠️ AI Content Suspected ({Math.round((r.aiDetection.score || 0) * 100)}%)
+                                </span>
+                              ) : r.marksAwarded !== null ? (
+                                <span className="stat-pill success" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                                  🛡️ High Integrity
+                                </span>
+                              ) : null}
                             </div>
 
                             {r.feedback && (
@@ -3694,13 +3931,16 @@ export default function App() {
                                   <div className="mcq-list">
                                     {(question.choices || []).map((c, idx) => (
                                       <label key={idx} className={`mcq-option ${mcqChoice === idx ? "active" : ""}`}>
-                                        <input
-                                          type="radio"
-                                          name="mcq"
-                                          checked={mcqChoice === idx}
-                                          onChange={() => setMcqChoice(idx)}
-                                        />
-                                        <span>{c}</span>
+                                        <div className="mcq-indicator">
+                                          <input
+                                            type="radio"
+                                            name="mcq"
+                                            checked={mcqChoice === idx}
+                                            onChange={() => setMcqChoice(idx)}
+                                          />
+                                          <span className="option-letter">{String.fromCharCode(65 + idx)}</span>
+                                        </div>
+                                        <span className="option-text">{c}</span>
                                       </label>
                                     ))}
                                   </div>

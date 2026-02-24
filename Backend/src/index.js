@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const natural = require("natural");
 const pdfParse = require("pdf-parse");
 const { v4: uuidv4 } = require("uuid");
-const { evaluateSubjectiveAnswer, getEvaChatResponse } = require("./services/aiService");
+const { evaluateSubjectiveAnswer, getEvaChatResponse, generateProctoringNarrative, detectAIContent } = require("./services/aiService");
 
 let mongoose = null;
 try {
@@ -161,20 +161,38 @@ function uniqueChoices(list, max) {
 function buildMcq(question, pool, rand) {
   const correct = firstSentence(question.reference);
   const distractors = [];
-  for (let i = 0; i < Math.min(pool.length, 80); i += 1) {
-    const candidate = pool[Math.floor(rand() * pool.length)];
+
+  // Use a deck-shuffling style or broader sampling for better distractors
+  const candidates = [...pool].sort(() => rand() - 0.5);
+
+  for (const candidate of candidates) {
     if (!candidate || candidate.id === question.id) continue;
-    distractors.push(firstSentence(candidate.reference));
-    if (distractors.length >= 8) break;
+    const sentence = firstSentence(candidate.reference);
+    // Ensure distractor is distinct from correct answer and other distractors
+    if (
+      sentence.length > 20 &&
+      sentence.toLowerCase() !== correct.toLowerCase() &&
+      !distractors.some(d => d.toLowerCase() === sentence.toLowerCase())
+    ) {
+      distractors.push(sentence);
+    }
+    if (distractors.length >= 6) break;
   }
+
   const choices = uniqueChoices([correct, ...distractors], 4);
   while (choices.length < 4) {
-    choices.push(`None of the above (review the reference).`);
+    choices.push(`Data not explicitly stated (refer to ${question.difficulty} guidelines).`);
   }
-  // Shuffle but keep track of correct index.
+
+  // Shuffle
   const shuffled = [...choices].sort(() => rand() - 0.5);
-  const correctIndex = Math.max(0, shuffled.findIndex((c) => c === correct));
-  return { choices: shuffled, correctIndex, explanation: question.reference || "" };
+  const correctIndex = shuffled.findIndex((c) => c === correct);
+
+  return {
+    choices: shuffled.map(c => c.trim()),
+    correctIndex: correctIndex === -1 ? 0 : correctIndex,
+    explanation: question.reference || ""
+  };
 }
 
 function ensureQuestionFormatOnBank(bank, format, seedInput) {
@@ -189,13 +207,18 @@ function ensureQuestionFormatOnBank(bank, format, seedInput) {
       next.choices = built.choices;
       next.correctIndex = built.correctIndex;
       next.explanation = built.explanation;
-      // Make prompt MCQ friendly.
-      next.prompt = `Select the best-supported statement based on the book: ${generatePrompt(
+
+      // Heuristic: Is the prompt already a question?
+      const basePrompt = generatePrompt(
         firstSentence(q.reference || q.prompt),
         q.keywords || topKeywords(q.reference || q.prompt, 3),
         q.difficulty,
         rand
-      )}`;
+      );
+
+      next.prompt = basePrompt.toLowerCase().includes("what is") || basePrompt.includes("?")
+        ? basePrompt
+        : `Based on the text about ${q.keywords[0] || "the topic"}, ${basePrompt}`;
     } else {
       next.choices = undefined;
       next.correctIndex = undefined;
@@ -654,8 +677,22 @@ function mulberry32(seed) {
 
 function cleanText(text) {
   return String(text || "")
+    // 1. Convert all whitespace and non-breaking spaces to standard space
+    .replace(/[\n\r\t\u00A0]+/g, " ")
+    // 2. Fix missing spaces after punctuation (e.g., "word.Another" -> "word. Another")
+    // Excluding decimals like 3.14
+    .replace(/([a-zA-Z])([.!?])([a-zA-Z])/g, "$1$2 $3")
+    // 3. Fix merged words where lowercase is immediately followed by uppercase (common in PDF extraction)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    // 4. Fix missing spaces between a word and a number (e.g., "chapter1" -> "chapter 1")
+    .replace(/([a-zA-Z])([0-9])/g, "$1 $2")
+    .replace(/([0-9])([a-zA-Z])/g, "$1 $2")
+    // 5. Fix missing spaces after common closing brackets/symbols
+    .replace(/([\])}])([a-zA-Z])/g, "$1 $2")
+    // 6. Collapse multiple spaces
     .replace(/\s+/g, " ")
-    .replace(/[^\x20-\x7E\n\r\t]/g, " ")
+    // 7. Remove non-printable/junk characters
+    .replace(/[^\x20-\x7E]/g, " ")
     .trim();
 }
 
@@ -1234,6 +1271,7 @@ function createQuizSession({ bookSession, studentId, initialLevel, questionCount
 }
 
 function buildResult(quizSession) {
+  calculateRiskDecay(quizSession);
   const marksPerQuestion = quizSession.marksPerQuestion ?? 100 / (quizSession.questionCount || 1);
   const processedResponses = quizSession.responses.map((r) => {
     // If marksAwarded is null but percentage exists, calculate it based on fallback marksPerQuestion
@@ -1343,8 +1381,22 @@ function registerProctorEvent(quizSession, type, meta = {}) {
     no_face: 10,
     multiple_faces: 20,
     mobile_phone: 30,
-    suspicious_noise: 7
+    suspicious_noise: 7,
+    identity_mismatch: 50,
+    gaze_deviated: 15
   };
+
+  // Ensure risk is decayed before applying new increases
+  calculateRiskDecay(quizSession);
+
+  // SNAPSHOT HANDLING: If meta contains a base64 snapshot, we could save it physically.
+  // For now, we'll keep it in the event log but limit to the latest one or use a placeholder
+  // to keep the database/store.json manageable.
+  if (meta.snapshot && typeof meta.snapshot === "string" && meta.snapshot.startsWith("data:image")) {
+    // In a real prod env, we'd save this to S3/Disk. Here we'll just keep a reference.
+    // meta.hasSnapshot = true;
+    // delete meta.snapshot; // Clear base64 from event log to save space
+  }
 
   const increase = weights[type] || 5;
   quizSession.proctor.riskScore = Math.min(100, quizSession.proctor.riskScore + increase);
@@ -1390,8 +1442,7 @@ function registerProctorEvent(quizSession, type, meta = {}) {
   }
 
   if (autoCancel && !quizSession.completed) {
-    quizSession.completed = true;
-    quizSession.completedAt = Date.now();
+    finishQuizSession(quizSession);
     quizSession.proctor.warningMessages.push(warning);
   }
 
@@ -1401,6 +1452,40 @@ function registerProctorEvent(quizSession, type, meta = {}) {
     warningCount: quizSession.proctor.warningCount,
     cancelled: autoCancel
   };
+}
+
+function finishQuizSession(quizSession) {
+  if (quizSession.completed) return;
+  quizSession.completed = true;
+  quizSession.completedAt = Date.now();
+  quizSession.currentQuestionId = null;
+  quizSession.aiPublishAt = quizSession.completedAt;
+
+  // Trigger AI integrity analysis for report
+  generateProctoringNarrative(quizSession.proctor.events).then(narrative => {
+    quizSession.proctor.narrative = narrative;
+    persistQuizSession(quizSession).catch(() => { });
+  }).catch(() => { });
+
+  persistQuizSession(quizSession).catch(() => { });
+}
+
+function calculateRiskDecay(quizSession) {
+  if (quizSession.completed) return;
+  const now = Date.now();
+  const lastEvent = quizSession.proctor.events[quizSession.proctor.events.length - 1];
+  const lastEventAt = lastEvent ? new Date(lastEvent.at).getTime() : (quizSession.startedAt || now);
+  const minutesSinceLast = (now - lastEventAt) / 60000;
+
+  // If more than 3 minutes have passed since last event, reduce risk by 2 points per minute
+  if (minutesSinceLast >= 3 && quizSession.proctor.riskScore > 0) {
+    const decay = Math.floor(minutesSinceLast - 2) * 2;
+    const newScore = Math.max(0, quizSession.proctor.riskScore - decay);
+    // Only update if there's a change
+    if (newScore !== quizSession.proctor.riskScore) {
+      quizSession.proctor.riskScore = newScore;
+    }
+  }
 }
 
 async function ensureQuizAccess(req, res) {
@@ -1932,6 +2017,45 @@ app.delete("/api/admin/users/:userId", authRequired, requireRoles("admin"), asyn
 
   await logHistory(req.user.id, "user_deleted_by_admin", { targetEmail: user.email });
   return res.json({ ok: true });
+});
+
+// GET /api/users/me/analytics - Aggregates mastery by topic/difficulty for 3D Map
+app.get("/api/users/me/analytics", authRequired, async (req, res) => {
+  try {
+    let allSessions = [];
+    if (dbReady && QuizSessionModel) {
+      allSessions = await QuizSessionModel.find({ studentId: req.user.id, completed: true }).lean();
+    } else {
+      allSessions = Array.from(quizSessions.values()).filter(q => q.studentId === req.user.id && q.completed);
+    }
+
+    // mastery: topic/difficulty -> { sumScore: number, count: number }
+    const mastery = {};
+
+    allSessions.forEach(session => {
+      (session.responses || []).forEach(resp => {
+        const topic = (resp.difficulty || "general").toLowerCase();
+        if (!mastery[topic]) {
+          mastery[topic] = { sum: 0, count: 0 };
+        }
+        mastery[topic].sum += (resp.percentage || 0);
+        mastery[topic].count += 1;
+      });
+    });
+
+    const topics = Object.keys(mastery).map(topic => {
+      const avg = Math.round(mastery[topic].sum / mastery[topic].count);
+      return {
+        name: topic.charAt(0).toUpperCase() + topic.slice(1),
+        score: avg,
+        color: topic === "advanced" ? "#ef4444" : topic === "intermediate" ? "#f9b46d" : "#78e0ff"
+      };
+    });
+
+    res.json({ topics: topics.length ? topics : [{ name: "Onboarding", score: 0, color: "#a78fff" }] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 async function deleteTestEverywhere(testId, opts = {}) {
@@ -2642,9 +2766,7 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
   }
 
   if (Date.now() > quizSession.deadlineAt) {
-    quizSession.completed = true;
-    quizSession.currentQuestionId = null;
-    persistQuizSession(quizSession).catch(() => { });
+    finishQuizSession(quizSession);
     logHistory(req.user.id, "quiz_timed_out", { quizId: quizSession.id }).catch(() => { });
     return res.json({
       completed: true,
@@ -2691,13 +2813,18 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
     // Subjective AI-enhanced scoring
     try {
       if (process.env.OPENAI_API_KEY) {
-        const aiResult = await evaluateSubjectiveAnswer(answer, currentQuestion.prompt, currentQuestion.reference, 100);
+        const [aiResult, aiDetection] = await Promise.all([
+          evaluateSubjectiveAnswer(answer, currentQuestion.prompt, currentQuestion.reference, 100),
+          detectAIContent(answer)
+        ]);
+
         baseEvaluation = {
           percentage: aiResult.score,
           feedback: aiResult.feedback,
           reasoning: aiResult.reasoning,
           confidence: aiResult.confidence,
           rubric: aiResult.rubric,
+          aiDetection, // Added AI detection results
           isAI: true
         };
       } else {
@@ -2760,13 +2887,7 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
 
   const completed = quizSession.responses.length >= quizSession.questionCount;
   if (completed) {
-    quizSession.currentQuestionId = null;
-    quizSession.completed = true;
-    quizSession.completedAt = Date.now();
-    // Results are AI-checked immediately and released immediately (no delay).
-    quizSession.aiPublishAt = quizSession.completedAt;
-    quizSession.teacherPublishedAt = quizSession.teacherPublishedAt ?? null;
-    persistQuizSession(quizSession).catch(() => { });
+    finishQuizSession(quizSession);
     logHistory(req.user.id, "quiz_completed", { quizId: quizSession.id, average: buildResult(quizSession).averagePercentage }).catch(
       () => { }
     );
@@ -2781,8 +2902,7 @@ app.post("/api/quiz/:quizId/answer", authRequired, requireRoles("student", "admi
 
   const nextQuestion = pickNextQuestion(quizSession, quizSession.questionBank);
   if (!nextQuestion) {
-    quizSession.currentQuestionId = null;
-    quizSession.completed = true;
+    finishQuizSession(quizSession);
     return res.json({
       evaluation,
       completed: true,
@@ -3194,6 +3314,7 @@ app.get("/api/tests/:testId/analytics", authRequired, requireRoles("teacher", "a
 
   let totalScore = 0;
   let totalRisk = 0;
+  const topicMastery = {};
 
   attempts.forEach((s) => {
     const risk = s.proctor?.riskScore || 0;
@@ -3203,6 +3324,14 @@ app.get("/api/tests/:testId/analytics", authRequired, requireRoles("teacher", "a
     else if (risk < 55) stats.riskDistribution.medium++;
     else if (risk < 80) stats.riskDistribution.high++;
     else stats.riskDistribution.critical++;
+
+    // Aggregate topic performance across all students in this test
+    (s.responses || []).forEach(resp => {
+      const t = (resp.difficulty || "general").toLowerCase();
+      if (!topicMastery[t]) topicMastery[t] = { sum: 0, count: 0 };
+      topicMastery[t].sum += (resp.percentage || 0);
+      topicMastery[t].count += 1;
+    });
 
     if (s.completed) {
       const score = Number(s.teacherOverallMarks) || 0;
@@ -3220,6 +3349,12 @@ app.get("/api/tests/:testId/analytics", authRequired, requireRoles("teacher", "a
   }
 
   stats.averageRisk = (totalRisk / attempts.length).toFixed(1);
+
+  stats.topics = Object.keys(topicMastery).map(t => ({
+    name: t.charAt(0).toUpperCase() + t.slice(1),
+    score: Math.round(topicMastery[t].sum / topicMastery[t].count),
+    color: t === "advanced" ? "#ef4444" : t === "intermediate" ? "#f9b46d" : "#78e0ff"
+  }));
 
   return res.json(stats);
 });
