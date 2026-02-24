@@ -16,31 +16,29 @@ Evalo doesn't just grade; it understands.
 Maintain absolute exam integrity with our multi-layered security suite:
 - **Live Risk Scoring**: Real-time behavior analysis that calculates a "Risk Score" based on user actions.
 - **AI Computer Vision (Coco-SSD)**: Integrated **TensorFlow.js** for real-time detection of multiple faces and mobile phones during exams.
-- **Event Logging**: Detailed tracking of tab switches, window blurs, and unauthorized camera behavior.
-- **Fullscreen Enforcement**: Mandatory fullscreen mode to prevent external distractions.
-- **Late Join Blocking**: Automated server-side enforcement to block students from joining after the scheduled test end time.
-- **Global Security Controls**: Admins can toggle sensitive features like **Copy-Paste** across the entire platform instantly.
+- **Forensic AI Content Detection**: Every subjective response is analyzed for GPT-style markers and unnatural structures, flagging suspected AI-written content with specialized **Integrity Badges**.
+- **Real-time Audio Analysis**: Integrated Web Audio API monitors ambient noise and detects suspicious verbal communication during the session.
+- **Event Logging & Narrative**: Detailed tracking of tab switches and camera behavior, summarized into a human-readable **AI Integrity Narrative** for teachers.
 
 #### Advanced Security Infrastructure
-- **Dynamic Watermarking**: Anti-piracy overlays mapping to student credentials to deter screen capturing.
-- **Browser Fingerprinting**: Cryptographic hashing of device/browser properties to prevent mid-exam session hijacking.
-- **API Defense & Rate Limiting**: Protection against brute-force attacks and exam-submission spam using robust endpoint throttling.
-- **Strict Data Sanitization**: Deep NoSQLi and XSS prevention via strict input sanitization on all subjective answers and data layers.
-- **Container Security**: Non-root Docker execution and dependency scanning to mitigate infrastructure vulnerabilities.
+- **Dynamic Watermarking**: Translucent, repositioning overlays mapping to student credentials to deter screen capturing and photography.
+- **Browser Fingerprinting**: Cryptographic hashing of hardware and environment properties to prevent mid-exam session hijacking.
+- **Fullscreen Enforcement**: Mandatory fullscreen mode with automated proctoring alerts upon exit.
 
 ### 🤖 Eva - Your AI Knowledge Assistant
 The platform now features **Eva**, a dedicated glassmorphic AI chatbot:
+- **Knowledge Sync**: Clicking any 3D node in the Knowledge Orbit automatically triggers Eva with a pre-filled study focus tailored to that topic.
 - **Project Intelligence**: Eva is trained on the Evalo architecture and can assist users with platform queries, proctoring rules, and technical support.
-- **Seamless Integration**: Fixed support access with direct fallbacks to **Arunabh17oo@gmail.com**.
-- **Interactive UI**: Features a sleek, minimizable interface with real-time AI responses.
 
 ### 💎 Premium User Experience
 Built with a "Design-First" philosophy, featuring a fully immersive environment:
+- **🕸️ Knowledge Orbit**: A stunning interactive 3D topic mastery visualization. Students and Admins can explore their performance in 3D space, with nodes serving as direct entry points for AI-guided study.
 - **Role-Based 3D Backgrounds**:
   - 🌌 **Guest ("The Void")**: A minimalist, deep-space environment for calm exploration.
   - 🔮 **Student ("The Nexus")**: A high-energy scene with floating crystals and dynamic rings to stimulate focus.
-  - 🏛️ **Teacher ("The Architecture")**: A structured, analytical grid with golden accents, representing control and oversight.
+  - 🏛️ **Teacher ("The Architecture")**: A structured, analytical grid with golden accents.
 - **Glassmorphic UI**: Breathtaking interface with real-time blur effects, smooth gradients, and **Framer Motion** animations.
+- **Mcq Readability Suite**: Professionally indexed options (A, B, C, D) with improved extraction logic for zero-clutter reading.
 - **Premium Typography**: Typographically verified with the **Outfit** font family for a modern, clean aesthetic.
 - **Light & Dark Mode Parity**: Fully optimized backgrounds and component themes that ensure 100% legibility and premium aesthetics in both light and dark environments.
 - **Smart Notifications**: Intelligent toast system with animated entry/exits and "Copy-to-Clipboard" shortcuts for all test join codes.
@@ -53,11 +51,10 @@ Built with a "Design-First" philosophy, featuring a fully immersive environment:
 ## 🛠️ Technical Architecture
 
 ### Tech Stack
-- **Frontend**: React 18, Vite, Framer Motion, Three.js (`@react-three/fiber`), jsPDF.
-- **Backend**: Node.js, Express, Multer (File Processing), Natural (NLP).
+- **Frontend**: React 18, Vite, Framer Motion, Three.js (`@react-three/fiber`), TensorFlow.js, jsPDF.
+- **Backend**: Node.js, Express, Multer (File Processing), Natural (NLP), OpenAI API.
 - **Persistence**: Dual-support for **MongoDB** (Production-ready) or **Local JSON Storage**.
 - **Containerization**: Fully **Dockerized** for seamless development and deployment.
-- **AI/ML**: Integration with **OpenAI API** for subjective scoring and **TFJS (Coco-SSD)** for on-device computer vision proctoring.
 
 ## 🚀 Setup & Installation
 
