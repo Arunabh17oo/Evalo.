@@ -1,98 +1,83 @@
 # 🌌 Evalo - Adaptive AI Exam Intelligence
 
-Evalo is a premium, state-of-the-art AI-powered examination platform. It leverages advanced Large Language Models and local NLP fallbacks to provide precise subjective and objective assessments, coupled with a high-integrity proctoring ecosystem.
+Evalo is a premium, state-of-the-art AI-powered examination platform designed for the modern educational landscape. It merges high-precision Large Language Models with a robust proctoring ecosystem and a breathtaking 3D user experience, redefining how integrity and intelligence meet in digital assessments.
 
 ![Evalo Logo](Frontend/public/evalo-logo.png)
 
-## ✨ Core Pillars
+## ✨ The Core Pillars
 
-### 🧠 Adaptive AI Scoring Engine
-Evalo doesn't just grade; it understands.
-- **Hybrid Evaluation**: Utilizes **OpenAI** for high-precision contextual reasoning and **Local NLP** (Cosine Similarity, Jaccard Index, Keyword Coverage) for robust, instant grading.
-- **Dynamic Difficulty**: The system automatically adjusts question levels (Beginner → Intermediate → Advanced) based on student performance in real-time.
-- **Multi-Format Support**: Seamless handling of MCQs, long-form subjective answers, and mixed-mode examinations.
+### 🧠 PASS - Proctor-Aware Semantic Scoring
+Evalo doesn't just grade; it understands. Our proprietary **PASS Engine** provides rigorous, evidence-based evaluation.
+- **Multi-Criteria Rubric**: Every subjective answer is scored across three dimensions: **Factual Accuracy (50%)**, **Completeness (30%)**, and **Clarity & Logic (20%)**.
+- **Hybrid Intelligence**: Utilizes **OpenAI GPT-4 Turbo** or **Google Gemini** for deep contextual reasoning, with a local NLP fallback (Cosine Similarity, Jaccard Index) for zero-latency grading.
+- **Dynamic Difficulty**: Real-time adjustment of question complexity (Beginner → Intermediate → Advanced) based on live student performance.
+- **AI Feedback Loop**: Students receive constructive, 25-word feedback snippets and full reasoning justifications for every score.
 
-### 🛡️ High-Integrity Proctoring & Cyber Security
-Maintain absolute exam integrity with our multi-layered security suite:
-- **Live Risk Scoring**: Real-time behavior analysis that calculates a "Risk Score" based on user actions.
-- **AI Computer Vision (Coco-SSD)**: Integrated **TensorFlow.js** for real-time detection of multiple faces and mobile phones during exams.
-- **Forensic AI Content Detection**: Every subjective response is analyzed for GPT-style markers and unnatural structures, flagging suspected AI-written content with specialized **Integrity Badges**.
-- **Real-time Audio Analysis**: Integrated Web Audio API monitors ambient noise and detects suspicious verbal communication during the session.
-- **Event Logging & Narrative**: Detailed tracking of tab switches and camera behavior, summarized into a human-readable **AI Integrity Narrative** for teachers.
+### 🛡️ High-Integrity Proctoring & AI Forensics
+Maintain absolute exam integrity with Evalo's multi-layered security and detection suite:
+- **🕵️ AI Content Forensics**: Every subjective response is scanned for GPT-style markers and LLM-specific structures. Suspected AI-generated content is flagged with specialized **Integrity Badges**.
+- **👁️ Computer Vision (TensorFlow.js)**: Integrated **Coco-SSD** models perform real-time detection of multiple faces, mobile phones, and suspicious peripherals directly in the browser.
+- **📊 Live Risk Scoring**: A dynamic risk profile (0-100%) is calculated for every student based on tab switches, camera anomalies, and background noise.
+- **📝 AI Integrity Narrative**: For teachers, Evalo summarizes hours of proctoring data into a concise, professional narrative, highlighting patterns and critical violations.
+- **🔐 Cyber Suite**: Includes **Dynamic Watermarking** (credential-mapped overlays), **Browser Fingerprinting** (hashing environment properties), and mandatory **Fullscreen Enforcement**.
 
-#### Advanced Security Infrastructure
-- **Dynamic Watermarking**: Translucent, repositioning overlays mapping to student credentials to deter screen capturing and photography.
-- **Browser Fingerprinting**: Cryptographic hashing of hardware and environment properties to prevent mid-exam session hijacking.
-- **Fullscreen Enforcement**: Mandatory fullscreen mode with automated proctoring alerts upon exit.
+### 🤖 Eva - Glassmorphic AI Assistant
+The platform features **Eva**, an intelligent, persona-driven chatbot trained on the Evalo architecture.
+- **Contextual Synergy**: Clicking any node in the **3D Knowledge Orbit** automatically triggers Eva with a pre-filled study focus tailored to that specific topic.
+- **Support-Ready**: From explaining proctoring rules to assisting with platform navigation, Eva provides a premium, helpful layer of interactivity.
+- **Professional Guardrails**: Engineered to be helpful while maintaining strict security boundaries regarding internal system data.
 
-### 🤖 Eva - Your AI Knowledge Assistant
-The platform now features **Eva**, a dedicated glassmorphic AI chatbot:
-- **Knowledge Sync**: Clicking any 3D node in the Knowledge Orbit automatically triggers Eva with a pre-filled study focus tailored to that topic.
-- **Project Intelligence**: Eva is trained on the Evalo architecture and can assist users with platform queries, proctoring rules, and technical support.
+### 💎 Immersive Premium UX
+Built with a "Design-First" philosophy, Evalo offers a breathtaking environment that stimulates focus and engagement.
+- **🕸️ 3D Knowledge Orbit**: A stunning interactive visualization of topic mastery. Explore performance in 3D space, where nodes serve as entry points for AI-guided study.
+- **🎭 Role-Based 3D Scenes**:
+  - 🌌 **The Void (Guest)**: A minimalist, deep-space environment for calm exploration.
+  - 🔮 **The Nexus (Student)**: A high-energy scene with floating crystals and dynamic rings to stimulate focus.
+  - 🏛️ **The Architecture (Teacher)**: A structured, analytical grid with golden accents for administrative tasks.
+- **✨ Aesthetics**: Full glassmorphic UI with real-time blur effects, smooth **Framer Motion** transitions, and professional typography using the **Outfit** font family.
+- **🎧 Soundscape Engine**: Integrated ambient audio for focused exam sessions.
 
-### 💎 Premium User Experience
-Built with a "Design-First" philosophy, featuring a fully immersive environment:
-- **🕸️ Knowledge Orbit**: A stunning interactive 3D topic mastery visualization. Students and Admins can explore their performance in 3D space, with nodes serving as direct entry points for AI-guided study.
-- **Role-Based 3D Backgrounds**:
-  - 🌌 **Guest ("The Void")**: A minimalist, deep-space environment for calm exploration.
-  - 🔮 **Student ("The Nexus")**: A high-energy scene with floating crystals and dynamic rings to stimulate focus.
-  - 🏛️ **Teacher ("The Architecture")**: A structured, analytical grid with golden accents.
-- **Glassmorphic UI**: Breathtaking interface with real-time blur effects, smooth gradients, and **Framer Motion** animations.
-- **Mcq Readability Suite**: Professionally indexed options (A, B, C, D) with improved extraction logic for zero-clutter reading.
-- **Premium Typography**: Typographically verified with the **Outfit** font family for a modern, clean aesthetic.
-- **Light & Dark Mode Parity**: Fully optimized backgrounds and component themes that ensure 100% legibility and premium aesthetics in both light and dark environments.
-- **Smart Notifications**: Intelligent toast system with animated entry/exits and "Copy-to-Clipboard" shortcuts for all test join codes.
-
-### 📊 Analytics & Reporting
-- **Question-wise Analysis**: Every answer receives deep AI feedback, helping students understand *why* they scored what they did.
-- **PDF Generation**: Professional, 3-column performance reports (Student Info, AI Score, Teacher Score) generated via jsPDF.
-- **Teacher Insights**: Comprehensive analytics including average scores, completion rates, and risk distribution charts.
+## 📊 Analytics & Deep Insights
+- **Question-wise Diagnostics**: Deep AI feedback on every answer helps students understand their learning gaps.
+- **Professional PDF Reports**: Automated generation of 3-column performance reports (Student Info, AI Score, Teacher Score) via **jsPDF**.
+- **System Audit Logs**: Comprehensive tracking of all administrative actions and system events for total transparency.
 
 ## 🛠️ Technical Architecture
 
-### Tech Stack
-- **Frontend**: React 18, Vite, Framer Motion, Three.js (`@react-three/fiber`), TensorFlow.js, jsPDF.
-- **Backend**: Node.js, Express, Multer (File Processing), Natural (NLP), OpenAI API.
-- **Persistence**: Dual-support for **MongoDB** (Production-ready) or **Local JSON Storage**.
-- **Containerization**: Fully **Dockerized** for seamless development and deployment.
+### The Tech Stack
+- **Frontend**: React 18, Vite, Three.js (`@react-three/fiber`), Framer Motion, TensorFlow.js, jsPDF.
+- **Backend**: Node.js, Express, Multer, Natural (Local NLP), OpenAI/Gemini API integration.
+- **Persistence**: Dual-support for **MongoDB** (Production) or **Local JSON Storage** (Development).
+- **Infrastrucute**: Fully **Dockerized** with orchestrated services.
 
 ## 🚀 Setup & Installation
 
-### Option 1: Docker (Preferred - Zero Configuration)
-Run the entire stack (Frontend, Backend, and MongoDB) with a single command:
+### Option 1: Docker (Zero Configuration)
+The fastest way to deploy the entire Evalo stack (Frontend, Backend, MongoDB):
 
 1. Ensure **Docker Desktop** is running.
 2. In the project root, run:
    ```bash
    docker-compose up --build
    ```
-3. Access the app:
+3. Access the ecosystem:
    - **Frontend**: `http://localhost:5173`
    - **Backend API**: `http://localhost:5050/api`
 
 ### Option 2: Manual Setup
 
-#### 📂 Repository Structure
-```
-Evalo/
-├── Backend/   # Express.js Server
-└── Frontend/  # Vite + React Client
-```
-
-#### 🚀 Backend Setup
-1. Navigate to: `cd Backend`
-2. Install: `npm install`
-3. Configure `.env` (see `.env.example`).
-4. Start: `npm run dev` (Port: `5050`)
-
-#### 💻 Frontend Setup
-1. Navigate to: `cd Frontend`
-2. Install: `npm install`
-3. Start: `npm run dev` (URL: `http://localhost:5173`)
+1. **Backend**:
+   ```bash
+   cd Backend && npm install && npm run dev
+   ```
+2. **Frontend**:
+   ```bash
+   cd Frontend && npm install && npm run dev
+   ```
 
 ---
 
-> [!TIP]
-> **Default Admin Credentials**: `admin@evalo.ai` / `admin123`
+> [!IMPORTANT]
+> **Default Admin Access**: `admin@evalo.ai` / `admin123`
 
 *Self-evolving intelligence for modern education.*
