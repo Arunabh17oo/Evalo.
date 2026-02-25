@@ -7,20 +7,9 @@ const crypto = require("crypto");
 const natural = require("natural");
 const pdfParse = require("pdf-parse");
 const { v4: uuidv4 } = require("uuid");
-const { evaluateSubjectiveAnswer, getEvaChatResponse, generateProctoringNarrative, detectAIContent } = require("./services/aiService");
-
-let mongoose = null;
-try {
-  // Optional: enable MongoDB persistence if `mongoose` is installed.
-  mongoose = require("mongoose");
-} catch (_error) {
-  mongoose = null;
-}
 
 function loadDotEnv(envPath) {
   try {
-    // Minimal .env loader (no external dependency).
-    // Format: KEY=VALUE, with optional quotes. Lines starting with # are ignored.
     const content = require("fs").readFileSync(envPath, "utf8");
     content.split(/\r?\n/).forEach((line) => {
       const trimmed = line.trim();
@@ -37,7 +26,17 @@ function loadDotEnv(envPath) {
   }
 }
 
+// Load env before services
 loadDotEnv(path.join(__dirname, "..", ".env"));
+
+let mongoose = null;
+try {
+  mongoose = require("mongoose");
+} catch (_error) {
+  mongoose = null;
+}
+
+const { evaluateSubjectiveAnswer, getEvaChatResponse, generateProctoringNarrative, detectAIContent } = require("./services/aiService");
 
 const DEFAULT_PORT = 5050;
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;

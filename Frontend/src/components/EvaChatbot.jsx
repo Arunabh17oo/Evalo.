@@ -8,9 +8,10 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5050/api';
 export default function EvaChatbot({ token }) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'assistant', content: "Hi! I'm Eva, your Evalo AI assistant. How can I help you today?" }
+        { role: 'assistant', content: "Hi! I'm Eva, your Evalo AI assistant. I can help with site info or any general questions you have. How can I help today?" }
     ]);
     const [input, setInput] = useState('');
+
     const [isTyping, setIsTyping] = useState(false);
     const scrollRef = useRef(null);
 
@@ -91,7 +92,7 @@ export default function EvaChatbot({ token }) {
                         <form className="eva-input-area" onSubmit={handleSend}>
                             <input
                                 type="text"
-                                placeholder="Ask Eva anything..."
+                                placeholder="Ask Eva anything (site info, code, general queries)..."
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 disabled={isTyping}
