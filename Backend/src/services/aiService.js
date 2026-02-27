@@ -141,18 +141,18 @@ async function getEvaChatResponse(userMessage, history = []) {
     }
 
     // 3. Last Resort: Local Matcher
-    console.log(`[Eva Debug] Falling back to Local Knowledge Base`);
-    if (msg.includes("pillar") || msg.includes("core")) return { role: "assistant", content: localKnowledge.pillars };
-    if (msg.includes("score") || msg.includes("scoring") || msg.includes("grade") || msg.includes("grading") || msg.includes("evaluation") || msg.includes("engine") || msg.includes("ai score") || msg.includes("how does ai scoring")) return { role: "assistant", content: localKnowledge.scoring };
-    if (msg.includes("proctor") || msg.includes("cheat") || msg.includes("integrity") || msg.includes("fullscreen") || msg.includes("log") || msg.includes("risk")) return { role: "assistant", content: localKnowledge.proctoring };
-    if (msg.includes("security") || msg.includes("safe") || msg.includes("watermark") || msg.includes("fingerprint") || msg.includes("api") || msg.includes("defense")) return { role: "assistant", content: localKnowledge.security };
-    if (msg.includes("stack") || msg.includes("tech") || msg.includes("built") || msg.includes("docker") || msg.includes("react") || msg.includes("node") || msg.includes("js")) return { role: "assistant", content: localKnowledge.tech };
-    if (msg.includes("admin") || msg.includes("login") || msg.includes("credentials") || msg.includes("password")) return { role: "assistant", content: localKnowledge.admin };
-    if (msg.includes("ux") || msg.includes("interface") || msg.includes("design") || msg.includes("background") || msg.includes("style") || msg.includes("3d") || msg.includes("look") || msg.includes("glass")) return { role: "assistant", content: localKnowledge.ux };
+    console.log(`[Eva Debug] Falling back to Local Knowledge Base for input: "${userMessage}"`);
+    if (msg.includes("pillar") || msg.includes("core")) return { role: "assistant", content: `Sure! ${localKnowledge.pillars}` };
+    if (msg.includes("score") || msg.includes("scoring") || msg.includes("grade") || msg.includes("grading") || msg.includes("evaluation") || msg.includes("engine") || msg.includes("ai score") || msg.includes("how does ai scoring")) return { role: "assistant", content: `I can explain that! ${localKnowledge.scoring}` };
+    if (msg.includes("proctor") || msg.includes("cheat") || msg.includes("integrity") || msg.includes("fullscreen") || msg.includes("log") || msg.includes("risk")) return { role: "assistant", content: `Regarding exam integrity: ${localKnowledge.proctoring}` };
+    if (msg.includes("security") || msg.includes("safe") || msg.includes("watermark") || msg.includes("fingerprint") || msg.includes("api") || msg.includes("defense")) return { role: "assistant", content: `Security is our priority: ${localKnowledge.security}` };
+    if (msg.includes("stack") || msg.includes("tech") || msg.includes("built") || msg.includes("docker") || msg.includes("react") || msg.includes("node") || msg.includes("js")) return { role: "assistant", content: `Here is our technical DNA: ${localKnowledge.tech}` };
+    if (msg.includes("admin") || msg.includes("login") || msg.includes("credentials") || msg.includes("password")) return { role: "assistant", content: "I cannot provide credentials, but I can help with platform navigation if you are logged in." };
+    if (msg.includes("ux") || msg.includes("interface") || msg.includes("design") || msg.includes("background") || msg.includes("style") || msg.includes("3d") || msg.includes("look") || msg.includes("glass")) return { role: "assistant", content: `We focus on premium design: ${localKnowledge.ux}` };
     if (msg.includes("contact") || msg.includes("help") || msg.includes("support") || msg.includes("mail") || msg.includes("email") || msg.includes("arunabh")) return { role: "assistant", content: localKnowledge.contact };
 
     return {
-        content: `I'm having trouble reaching my advanced AI modules right now. I can still help with information about AI Scoring, Proctoring, Security, or Site Setup. For other issues, please contact Arunabh17oo@gmail.com.`,
+        content: `I'm having a bit of trouble reaching my full intelligence module right now, but I'm still here to help! I can answer questions about AI Scoring, Proctoring, Security, or the 3D Experience. What would you like to know?`,
         role: "assistant"
     };
 }

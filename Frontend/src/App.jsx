@@ -8,6 +8,7 @@ import CommandPalette from "./components/CommandPalette";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import KnowledgeOrbit from "./components/KnowledgeOrbit";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import SoundscapeEngine from "./components/SoundscapeEngine";
 
 import * as tf from "@tensorflow/tfjs";
@@ -479,7 +480,7 @@ function AddUserModal({ open, onClose, onSubmit, busy, form, setForm, error }) {
   );
 }
 
-function PendingApprovalView({ user, onRefresh, busy }) {
+function PendingApprovalView({ user, onRefresh, busy, darkMode }) {
   return (
     <div className="card big-card centered-text" style={{ padding: '4rem 2rem' }}>
       <img src="/evalo-logo.png" alt="Evalo" style={{ width: '80px', marginBottom: '2rem' }} />
@@ -2390,7 +2391,7 @@ export default function App() {
           {proctorAlert ? <p className="warning wide">{proctorAlert}</p> : null}
 
           {user && !user.isApproved && user.role !== 'admin' && activePage === "home" ? (
-            <PendingApprovalView user={user} onRefresh={refreshMyProfile} busy={busy} />
+            <PendingApprovalView user={user} onRefresh={refreshMyProfile} busy={busy} darkMode={darkMode} />
           ) : (
             <>
               {activePage === "profile" ? (
@@ -2520,7 +2521,7 @@ export default function App() {
                                 <ambientLight intensity={0.5} />
                                 <pointLight position={[10, 10, 10]} intensity={1} />
                                 <KnowledgeOrbit data={analyticsData} />
-                                <OrbitControls enableZoom={false} />
+                                <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.5} />
                               </Suspense>
                             </Canvas>
                           </div>
@@ -3647,14 +3648,14 @@ export default function App() {
                               <div style={{ height: '350px', width: '100%' }}>
                                 <Canvas camera={{ position: [0, 0, 8] }}>
                                   <Suspense fallback={null}>
-                                    <ambientLight intensity={0.5} />
-                                    <pointLight position={[10, 10, 10]} intensity={1} />
                                     <KnowledgeOrbit
                                       data={analyticsData}
                                       onTopicClick={(topic) => {
                                         const evaBubble = document.querySelector('.eva-bubble');
                                         if (evaBubble) {
-                                          evaBubble.click();
+                                          if (!document.querySelector('.eva-window')) {
+                                            evaBubble.click();
+                                          }
                                           setTimeout(() => {
                                             const input = document.querySelector('.eva-input-area input');
                                             if (input) {
@@ -3662,12 +3663,25 @@ export default function App() {
                                               const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
                                               nativeInputValueSetter.call(input, msg);
                                               input.dispatchEvent(new Event('input', { bubbles: true }));
+                                              input.focus();
+
+                                              // Visual pulse animation
+                                              input.parentElement.animate([
+                                                { boxShadow: '0 0 0px var(--accent-color)' },
+                                                { boxShadow: '0 0 15px var(--accent-color)' },
+                                                { boxShadow: '0 0 0px var(--accent-color)' }
+                                              ], { duration: 800, iterations: 2 });
                                             }
-                                          }, 400);
+                                          }, 200);
                                         }
                                       }}
                                     />
-                                    <OrbitControls enableZoom={false} />
+                                    <OrbitControls
+                                      enableZoom={false}
+                                      autoRotate
+                                      autoRotateSpeed={0.5}
+                                      enablePan={false}
+                                    />
                                   </Suspense>
                                 </Canvas>
                               </div>
@@ -3691,7 +3705,6 @@ export default function App() {
                                     <div className="list-main">
                                       <div className="list-title">{a.testTitle || "Test"}</div>
                                       <div className="pill-wrap">
-                                        {/* Smart Status Indicator */}
                                         {!a.completed ? (
                                           <span className="pill" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>🔄 In Progress</span>
                                         ) : a.teacherPublishedAt ? (
@@ -4132,9 +4145,10 @@ export default function App() {
                 </>
               )}
             </>
-          )}
+          )
+          }
 
-        </main>
+        </main >
         <CommandPalette
           isOpen={isCommandPaletteOpen}
           onClose={() => setIsCommandPaletteOpen(false)}
@@ -4151,7 +4165,7 @@ export default function App() {
         />
         <Footer user={user} activePage={activePage} navigateTo={navigateTo} setAuthOpen={setAuthOpen} onShowStatus={() => setShowStatusModal(true)} pushToast={pushToast} />
         {!examActive && <EvaChatbot token={token} />}
-      </div>
+      </div >
     </MotionConfig >
   );
 }

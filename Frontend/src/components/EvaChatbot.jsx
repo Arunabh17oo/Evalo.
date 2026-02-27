@@ -21,6 +21,12 @@ export default function EvaChatbot({ token }) {
         }
     }, [messages, isTyping]);
 
+    const clearChat = () => {
+        setMessages([
+            { role: 'assistant', content: "History cleared. I'm ready for new questions! How can I help today?" }
+        ]);
+    };
+
     const handleSend = async (e) => {
         e?.preventDefault();
         if (!input.trim() || isTyping) return;
@@ -67,11 +73,21 @@ export default function EvaChatbot({ token }) {
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                     >
                         <div className="eva-header">
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span className="status-dot"></span>
                                 <h3>Eva AI</h3>
                             </div>
-                            <button className="eva-close-btn" onClick={() => setIsOpen(false)}>&times;</button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    className="eva-header-action-btn"
+                                    onClick={clearChat}
+                                    title="Clear Chat History"
+                                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', padding: '4px' }}
+                                >
+                                    🗑️
+                                </button>
+                                <button className="eva-close-btn" onClick={() => setIsOpen(false)}>&times;</button>
+                            </div>
                         </div>
 
                         <div className="eva-messages" ref={scrollRef}>
