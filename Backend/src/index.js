@@ -568,6 +568,31 @@ async function logHistory(userId, eventType, payload = {}) {
   }
 }
 
+/**
+ * Triggers an n8n workflow via webhook.
+ * Useful for automated notifications or advanced AI analysis.
+ */
+async function triggerN8NWorkflow(event, payload) {
+  try {
+    const axios = require("axios");
+    const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "http://n8n:5678/webhook/test-trigger";
+    await axios.post(N8N_WEBHOOK_URL, {
+      event,
+      timestamp: new Date().toISOString(),
+      payload
+    }, {
+      auth: {
+        username: "admin",
+        password: "evalo_n8n_secret"
+      }
+    });
+    console.log(`[n8n] Triggered workflow for event: ${event}`);
+  } catch (err) {
+    // Silent fail to not block the main flow
+    console.warn(`[n8n] Trigger Failed for ${event}:`, err.message);
+  }
+}
+
 async function persistUser(user) {
   if (!user) return;
   if (dbReady && UserModel) {
@@ -3020,7 +3045,9 @@ app.get("/api/tests/:testId/attempts", authRequired, requireRoles("teacher", "ad
       completed: Boolean(quiz?.completed),
       teacherPublishedAt: quiz?.teacherPublishedAt ?? null,
       publishCount: Number(quiz?.publishCount) || 0,
-      aiPublishAt: quiz?.aiPublishAt ?? null
+      aiPublishAt: quiz?.aiPublishAt ?? null,
+      teacherOverallMarks: quiz?.teacherOverallMarks ?? null,
+      aiOverallMarks: (quiz?.responses || []).reduce((s, r) => s + (Number(r.marksAwarded) || 0), 0)
     };
   });
 

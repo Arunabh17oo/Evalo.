@@ -1329,6 +1329,37 @@ export default function App() {
     }
   }
 
+  function downloadTestResultsCSV(testId) {
+    const test = teacherTests.find((t) => t.id === testId);
+    if (!test || !testAttempts.length) {
+      pushToast("No student attempts to export yet", "warning");
+      return;
+    }
+
+    const headers = ["Name", "Registration No.", "Teacher Marks", "AI Score"];
+    const rows = testAttempts.map((a) => [
+      a.studentName || a.studentEmail || "Unknown",
+      a.rollNo || "N/A",
+      a.teacherOverallMarks !== null ? a.teacherOverallMarks : "Not Reviewed",
+      a.aiOverallMarks !== null ? a.aiOverallMarks : "0"
+    ]);
+
+    // Secure CSV formatting with quote escaping
+    const csvContent = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${test.title.replace(/\s+/g, "_")}_Results.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    pushToast("Spreadsheet downloaded successfully", "success");
+  }
+
   async function fetchTestAnalytics(testId) {
     setBusy(true);
     try {
@@ -3284,6 +3315,14 @@ export default function App() {
                                   )}
                                   <button type="button" className="btn-soft btn-small" onClick={() => setShowPublishedAttempts((v) => !v)}>
                                     {showPublishedAttempts ? "🔽 Hide Published" : "🔼 Show Published"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-success btn-small"
+                                    onClick={() => downloadTestResultsCSV(reviewTestId)}
+                                    title="Download Results as Excel Spreadsheet"
+                                  >
+                                    📊 Download Results (Excel)
                                   </button>
                                 </div>
                               </div>

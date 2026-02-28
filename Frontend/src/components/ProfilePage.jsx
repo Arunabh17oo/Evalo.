@@ -81,6 +81,7 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
 
     // Settings
     const [notifications, setNotifications] = useState(false);
+    const [showFullPhoto, setShowFullPhoto] = useState(false);
 
     const stats = getRoleStats(user, adminStats);
 
@@ -132,7 +133,13 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                             <motion.div
                                 className="premium-avatar-container"
                                 whileHover={{ scale: 1.05 }}
-                                onClick={() => isEditing && fileInputRef.current?.click()}
+                                onClick={() => {
+                                    if (isEditing) {
+                                        fileInputRef.current?.click();
+                                    } else {
+                                        setShowFullPhoto(true);
+                                    }
+                                }}
                             >
                                 <div className="premium-avatar-inner" style={{ background: theme.gradient }}>
                                     {profilePic ? (
@@ -367,6 +374,35 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     </motion.div>
                 </div>
             </div>
+
+            <AnimatePresence>
+                {showFullPhoto && (
+                    <motion.div
+                        className="full-photo-modal"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowFullPhoto(false)}
+                    >
+                        <motion.div
+                            className="full-photo-content"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {profilePic ? (
+                                <img src={profilePic} alt="Full Profile" className="full-view-image" />
+                            ) : (
+                                <div className="full-view-initials" style={{ background: theme.gradient }}>
+                                    {name.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <button className="close-full-photo" onClick={() => setShowFullPhoto(false)}>×</button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <style>{`
                 .profile-wrapper {
@@ -768,6 +804,83 @@ export default function ProfilePage({ user, onLogout, pushToast, myAttempts = []
                     .stats-grid-premium { grid-template-columns: 1fr; }
                     .profile-header-premium { padding: 2rem 1.5rem; }
                     .name-premium { font-size: 2.2rem; }
+                }
+
+                .full-photo-modal {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 1000;
+                    background: rgba(0, 0, 0, 0.9);
+                    backdrop-filter: blur(15px);
+                    display: grid;
+                    place-items: center;
+                    padding: 2rem;
+                    cursor: pointer;
+                }
+
+                .full-photo-content {
+                    position: relative;
+                    max-width: 90vw;
+                    max-height: 90vh;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    cursor: default;
+                }
+
+                .full-view-image {
+                    max-width: 100%;
+                    max-height: 85vh;
+                    border-radius: 16px;
+                    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    object-fit: contain;
+                }
+
+                .full-view-initials {
+                    width: clamp(200px, 40vw, 400px);
+                    height: clamp(200px, 40vw, 400px);
+                    border-radius: 50%;
+                    display: grid;
+                    place-items: center;
+                    font-size: clamp(6rem, 15vw, 15rem);
+                    font-weight: 900;
+                    color: white;
+                    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+                    text-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                    border: 4px solid rgba(255,255,255,0.1);
+                }
+
+                .close-full-photo {
+                    position: absolute;
+                    top: -40px;
+                    right: -40px;
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(255,255,255,0.2);
+                    color: white;
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 50%;
+                    font-size: 1.5rem;
+                    display: grid;
+                    place-items: center;
+                    cursor: pointer;
+                    transition: 0.2s;
+                    line-height: 1;
+                    padding: 0;
+                }
+
+                .close-full-photo:hover {
+                    background: rgba(255,255,255,0.2);
+                    transform: scale(1.1);
+                }
+
+                @media (max-width: 600px) {
+                    .close-full-photo {
+                        top: 10px;
+                        right: 10px;
+                        background: rgba(0,0,0,0.5);
+                    }
                 }
             `}</style>
         </div>
