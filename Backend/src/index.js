@@ -3025,6 +3025,59 @@ app.get("/api/quizzes/:quizId", authRequired, async (req, res) => {
   });
 });
 
+app.get("/api/leaderboard", authRequired, async (req, res) => {
+  try {
+    let completedQuizzes = [];
+    if (dbReady && QuizSessionModel) {
+      completedQuizzes = await QuizSessionModel.find({ completed: true }).lean();
+    } else {
+      completedQuizzes = Array.from(quizSessions.values()).filter((q) => q.completed);
+    }
+
+    const studentBestScores = new Map();
+
+    for (const q of completedQuizzes) {
+      const studentId = q.studentId;
+
+      // Mixed Scoring Logic: Teacher Marks if published, else sum of AI marks
+      const aiScore = (q.responses || []).reduce((s, r) => s + (Number(r.marksAwarded) || 0), 0);
+      const finalScore = q.teacherOverallMarks !== null && q.teacherPublishedAt ? q.teacherOverallMarks : aiScore;
+
+      const existing = studentBestScores.get(studentId);
+      if (!existing || finalScore > existing.score) {
+        // Resolve name lazily from cache or DB
+        let name = "Unknown";
+        const cachedUser = users.get(studentId);
+        if (cachedUser) {
+          name = cachedUser.name || "Unknown";
+        } else if (dbReady && UserModel) {
+          const uDoc = await UserModel.findById(studentId).lean();
+          if (uDoc) {
+            name = uDoc.name || "Unknown";
+            // Optional: update cache
+            users.set(studentId, { id: studentId, name: uDoc.name, role: uDoc.role });
+          }
+        }
+
+        studentBestScores.set(studentId, {
+          name,
+          rollNo: q.rollNo || "N/A",
+          score: finalScore
+        });
+      }
+    }
+
+    const top3 = Array.from(studentBestScores.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+    return res.json({ leaderboard: top3 });
+  } catch (err) {
+    console.error("Leaderboard API Error:", err);
+    return res.status(500).json({ error: "Failed to fetch leaderboard data." });
+  }
+});
+
 app.get("/api/tests/:testId/attempts", authRequired, requireRoles("teacher", "admin"), async (req, res) => {
   const test = tests.get(req.params.testId);
   if (!test) return res.status(404).json({ error: "Test not found." });
@@ -3463,6 +3516,12 @@ async function bootstrap() {
       testDocs.forEach((d) => {
         const t = testFromDoc(d);
         tests.set(t.id, t);
+      });
+
+      const quizDocs = await QuizSessionModel.find({}).lean();
+      quizDocs.forEach((d) => {
+        const q = quizSessionFromDoc(d);
+        quizSessions.set(q.id, q);
       });
     } catch (error) {
       dbReady = false;

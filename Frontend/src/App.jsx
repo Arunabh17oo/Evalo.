@@ -744,6 +744,89 @@ function AuditLogModal({ open, onClose, logs }) {
 }
 
 
+function LeaderboardTicker({ data, loading }) {
+  const [dismissed, setDismissed] = useState(false);
+
+  // Auto-reappear after 10 minutes (600000ms)
+  useEffect(() => {
+    if (!dismissed) return;
+    const timer = setTimeout(() => setDismissed(false), 600000);
+    return () => clearTimeout(timer);
+  }, [dismissed]);
+
+  if (loading) {
+    return (
+      <div className="leaderboard-bar loading">
+        <span className="leaderboard-loading-text">✨ Loading Leaderboard...</span>
+      </div>
+    );
+  }
+
+  const students = (data || []).slice(0, 3);
+  if (students.length === 0) return null;
+
+  const rankLabels = ["1st", "2nd", "3rd"];
+
+  return (
+    <AnimatePresence>
+      {!dismissed && (
+        <motion.div
+          className="leaderboard-bar"
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -40, scale: 0.95 }}
+          transition={{ type: "spring", stiffness: 200, damping: 22, delay: 0.4 }}
+        >
+          {/* Close button — left side */}
+          <button
+            className="lb-close-btn"
+            onClick={() => setDismissed(true)}
+            title="Dismiss (reappears in 10 min)"
+          >
+            ✕
+          </button>
+
+          {/* Left accent badge */}
+          <div className="lb-accent" />
+
+          {/* Title */}
+          <div className="lb-title">
+            <span className="lb-trophy">🏆</span>
+            <span className="lb-title-text">LEADERBOARD</span>
+          </div>
+
+          {/* Divider */}
+          <div className="lb-divider" />
+
+          {/* Student Cards */}
+          <div className="lb-students">
+            {students.map((student, i) => (
+              <motion.div
+                key={student.name + i}
+                className={`lb-card lb-card-${i + 1}`}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 + i * 0.15 }}
+              >
+                <div className={`lb-rank-num lb-rank-${i + 1}`}>
+                  {rankLabels[i]}
+                </div>
+                <div className="lb-info">
+                  <span className="lb-name">{student.name}</span>
+                  <span className={`lb-score lb-score-${i + 1}`}>{student.score} Marks</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Right accent badge */}
+          <div className="lb-accent lb-accent-right" />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function SystemStatusModal({ open, onClose }) {
   if (!open) return null;
 
@@ -1004,6 +1087,8 @@ export default function App() {
   const [proctorLogs, setProctorLogs] = useState(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showProctorModal, setShowProctorModal] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState("");
   const [mcqChoice, setMcqChoice] = useState(null);
@@ -1117,6 +1202,9 @@ export default function App() {
         // Fetch global settings
         const sRes = await axios.get(`${API_BASE}/settings`);
         setGlobalSettings(sRes.data);
+
+        // Fetch leaderboard
+        fetchLeaderboard(token);
       } catch (_err) {
         if (!active) return;
         setToken("");
@@ -1155,6 +1243,7 @@ export default function App() {
       setAuthError("");
       setAuthForm({ name: "", email: "", password: "", role: "student" });
       await loadRoleData(data.user, data.token);
+      await fetchLeaderboard(data.token);
       pushToast(authMode === "login" ? "Login successful." : "Account created successfully.", "success");
     } catch (err) {
       setAuthError(appError(err, "Authentication failed."));
@@ -1329,19 +1418,37 @@ export default function App() {
     }
   }
 
-  function downloadTestResultsCSV(testId) {
+  async function downloadTestResultsCSV(testId) {
     const test = teacherTests.find((t) => t.id === testId);
-    if (!test || !testAttempts.length) {
+    if (!test) return;
+
+    let targetAttempts = testAttempts;
+    if (reviewTestId !== testId || !targetAttempts.length) {
+      setBusy(true);
+      try {
+        const { data } = await axios.get(`${API_BASE}/tests/${testId}/attempts`, authConfig(token));
+        targetAttempts = data.attempts || [];
+      } catch (err) {
+        pushToast("Failed to fetch attempts for export", "danger");
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+    }
+
+    if (!targetAttempts.length) {
       pushToast("No student attempts to export yet", "warning");
       return;
     }
 
-    const headers = ["Name", "Registration No.", "Teacher Marks", "AI Score"];
-    const rows = testAttempts.map((a) => [
+    const headers = ["Test Name", "Student Name", "Registration No.", "Teacher Marks", "AI Score", "Status"];
+    const rows = targetAttempts.map((a) => [
+      test.title,
       a.studentName || a.studentEmail || "Unknown",
       a.rollNo || "N/A",
       a.teacherOverallMarks !== null ? a.teacherOverallMarks : "Not Reviewed",
-      a.aiOverallMarks !== null ? a.aiOverallMarks : "0"
+      a.aiOverallMarks !== null ? a.aiOverallMarks : "0",
+      a.teacherPublishedAt ? "Published" : "Draft"
     ]);
 
     // Secure CSV formatting with quote escaping
@@ -1358,6 +1465,77 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
     pushToast("Spreadsheet downloaded successfully", "success");
+  }
+
+  async function fetchLeaderboard(overrideToken) {
+    const finalToken = overrideToken || token;
+    if (!finalToken) return;
+    setLoadingLeaderboard(true);
+    try {
+      const { data } = await axios.get(`${API_BASE}/leaderboard`, authConfig(finalToken));
+      setLeaderboard(data.leaderboard || []);
+    } catch (err) {
+      console.warn("Failed to fetch leaderboard", err.message);
+    } finally {
+      setLoadingLeaderboard(false);
+    }
+  }
+
+  async function downloadAllTeacherTestsCSV() {
+    if (!teacherTests.length) {
+      pushToast("No tests found to export", "warning");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const allRows = [];
+      const headers = ["Test Title", "Test Code", "Student Name", "Registration No.", "Teacher Marks", "AI Score", "Status"];
+
+      for (const test of teacherTests) {
+        try {
+          const { data } = await axios.get(`${API_BASE}/tests/${test.id}/attempts`, authConfig(token));
+          const attempts = data.attempts || [];
+          attempts.forEach(a => {
+            allRows.push([
+              test.title,
+              test.id.slice(-6).toUpperCase(),
+              a.studentName || a.studentEmail || "Unknown",
+              a.rollNo || "N/A",
+              a.teacherOverallMarks !== null ? a.teacherOverallMarks : "Not Reviewed",
+              a.aiOverallMarks !== null ? a.aiOverallMarks : "0",
+              a.teacherPublishedAt ? "Published" : "Draft"
+            ]);
+          });
+        } catch (err) {
+          console.warn(`Failed to fetch attempts for test ${test.id}`, err);
+        }
+      }
+
+      if (allRows.length === 0) {
+        pushToast("No attempts found across any tests", "warning");
+        setBusy(false);
+        return;
+      }
+
+      const csvContent = [headers, ...allRows]
+        .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `All_Students_Results_Export.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      pushToast(`Exported ${allRows.length} total student results`, "success");
+    } catch (err) {
+      pushToast(appError(err, "Global export failed"), "danger");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function fetchTestAnalytics(testId) {
@@ -2417,6 +2595,11 @@ export default function App() {
           </div>
         </header>
 
+        {/* Universal Leaderboard Ticker - Global Visibility */}
+        {user && !examActive && (
+          <LeaderboardTicker data={leaderboard} loading={loadingLeaderboard} />
+        )}
+
         <main className="main-grid">
           {error ? <p className="error wide">{error}</p> : null}
           {proctorAlert ? <p className="warning wide">{proctorAlert}</p> : null}
@@ -3285,6 +3468,27 @@ export default function App() {
                           )}
                         </div>
 
+                        {/* Global Export for Teacher */}
+                        {teacherTests.length > 0 && (
+                          <div className="card" style={{ marginTop: '2rem', textAlign: 'center', background: 'rgba(16, 185, 129, 0.05)', border: '1px dashed #10b981', padding: '2rem' }}>
+                            <h3 style={{ marginBottom: '1rem', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                              📊 Global Results Export
+                            </h3>
+                            <p className="hint" style={{ marginBottom: '1.5rem', maxWidth: '600px', margin: '0 auto 1.5rem' }}>
+                              Download a single Excel file containing student marks from <strong>all your tests</strong>.
+                              Sessions are automatically grouped by Test Code.
+                            </p>
+                            <button
+                              className="btn-success btn-large"
+                              onClick={downloadAllTeacherTestsCSV}
+                              disabled={busy}
+                              style={{ padding: '0.8rem 2rem', fontSize: '1rem', borderRadius: '12px' }}
+                            >
+                              {busy ? "⌛ Aggregating Data..." : "Download Consolidated Results (Combined Excel)"}
+                            </button>
+                          </div>
+                        )}
+
                         {reviewTestId ? (() => {
                           // Find the test being reviewed
                           const currentTest = teacherTests.find(t => t.id === reviewTestId);
@@ -3315,14 +3519,6 @@ export default function App() {
                                   )}
                                   <button type="button" className="btn-soft btn-small" onClick={() => setShowPublishedAttempts((v) => !v)}>
                                     {showPublishedAttempts ? "🔽 Hide Published" : "🔼 Show Published"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-success btn-small"
-                                    onClick={() => downloadTestResultsCSV(reviewTestId)}
-                                    title="Download Results as Excel Spreadsheet"
-                                  >
-                                    📊 Download Results (Excel)
                                   </button>
                                 </div>
                               </div>

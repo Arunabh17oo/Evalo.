@@ -333,8 +333,9 @@ body {
   margin: 0 auto;
   display: grid;
   gap: 1.5rem;
-  padding-top: 6.5rem;
-  /* Space for fixed top-nav */
+  padding-top: 14rem;
+  /* Safe offset for Fixed Navbar + Floating Leaderboard + Spacing */
+  /* Enhanced spacing for floating HUD elements (Navbar + Ticker + Gap) */
 }
 
 .card {
@@ -2306,126 +2307,6 @@ input:checked+.slider:before {
    Consolidated Responsive Design (Mobile-First / Adaptive)
    ============================================================ */
 
-/* Large Tablets & Small Desktops */
-@media (max-width: 1024px) {
-  .top-nav {
-    padding: 0.6rem 0;
-  }
-
-  .hero-card h1 {
-    font-size: clamp(1.8rem, 6vw, 2.8rem);
-  }
-
-  .main-grid {
-    padding-top: 7.5rem;
-    /* More space for tablet navbar */
-  }
-
-  .main-grid,
-  .topbar {
-    width: 96%;
-  }
-}
-
-/* Tablets & Mobile Devices */
-@media (max-width: 768px) {
-  .app-shell {
-    padding: 0.8rem 0.6rem 1.5rem;
-  }
-
-  .nav-container {
-    padding: 0 1rem;
-    gap: 1rem;
-  }
-
-  .main-grid {
-    padding-top: 11rem;
-    /* Even more space for stacked mobile navbar */
-  }
-
-  .nav-brand {
-    transform: scale(0.9);
-  }
-
-  .nav-actions {
-    width: 100%;
-    justify-content: flex-start;
-    gap: 0.5rem;
-  }
-
-  .topbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.8rem;
-  }
-
-  .topbar-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .split-card {
-    grid-template-columns: 1fr;
-  }
-
-  .card {
-    padding: 1.25rem;
-    border-radius: 20px;
-  }
-
-  .feature-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .cta-group {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .cta-button {
-    width: 100%;
-    text-align: center;
-  }
-
-  .modal-content {
-    width: 94%;
-    padding: 1.5rem;
-    margin: 1rem auto;
-  }
-
-  /* Evaluation Review Detail Adjustments */
-  .review-detail-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Small Phones */
-@media (max-width: 480px) {
-  .logo5d-main {
-    font-size: 1.6rem;
-  }
-
-  .hero-card h1 {
-    font-size: 1.8rem;
-  }
-
-  .toast-stack {
-    width: 90vw;
-    left: 5vw;
-    right: 5vw;
-    top: 5rem;
-    /* Clearance for mobile header */
-  }
-
-  .stat-number {
-    font-size: 1.8rem;
-  }
-}
 
 /* WAR ROOM LIVE DASHBOARD */
 .war-room-container {
@@ -2604,4 +2485,603 @@ body.light-mode .pill.pill-success {
 body.light-mode .pill.danger {
   background: rgba(239, 68, 68, 0.1) !important;
   color: #dc2626 !important;
+}
+
+/* Leaderboard Styles */
+.leaderboard-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem;
+  border-radius: 20px;
+}
+
+.leaderboard-podium {
+  height: 180px;
+  align-items: flex-end;
+}
+
+.podium-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.medal-gold {
+  filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4));
+  animation: shine 2s infinite;
+}
+
+.medal-silver {
+  filter: drop-shadow(0 0 10px rgba(192, 192, 192, 0.3));
+}
+
+.medal-bronze {
+  filter: drop-shadow(0 0 10px rgba(205, 127, 50, 0.3));
+}
+
+.podium-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.podium-base {
+  width: 100%;
+  transition: transform 0.3s ease;
+}
+
+.podium-item:hover .podium-base {
+  transform: scaleY(1.05);
+}
+
+@keyframes shine {
+  0% {
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.7));
+  }
+
+  100% {
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.4));
+  }
+}
+
+.leaderboard-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--accent-color);
+  font-weight: bold;
+}
+
+/* ============================================
+   LEADERBOARD BAR — Premium Static Top 3
+   ============================================ */
+.leaderboard-bar {
+  position: fixed;
+  top: 145px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 6rem);
+  max-width: 1000px;
+  z-index: 100;
+  background: linear-gradient(135deg, rgba(10, 20, 38, 0.75), rgba(15, 25, 45, 0.7));
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(16, 185, 129, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  font-family: var(--font-main);
+  overflow: hidden;
+}
+
+.leaderboard-bar.loading {
+  justify-content: center;
+}
+
+.leaderboard-loading-text {
+  color: #10b981;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  font-size: 0.85rem;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.7;
+    text-shadow: 0 0 0 transparent;
+  }
+
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+  }
+}
+
+/* Accent bar — hidden */
+.lb-accent {
+  display: none;
+}
+
+/* Title section */
+.lb-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.6rem 0 1.2rem;
+  flex-shrink: 0;
+}
+
+.lb-trophy {
+  font-size: 1.4rem;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.4));
+}
+
+.lb-title-text {
+  font-weight: 900;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* Vertical divider between title & cards */
+.lb-divider {
+  width: 1px;
+  height: 36px;
+  background: linear-gradient(180deg, transparent, rgba(16, 185, 129, 0.5), transparent);
+  flex-shrink: 0;
+}
+
+/* Students Container */
+.lb-students {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 1.5rem;
+  gap: 1.2rem;
+}
+
+/* Individual Student Card */
+.lb-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.45rem 1.4rem 0.45rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+}
+
+.lb-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* 1st place card */
+.lb-card-1 {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.06), rgba(245, 158, 11, 0.03));
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.06);
+}
+
+.lb-card-1:hover {
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.15), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* 2nd place card */
+.lb-card-2 {
+  border-color: rgba(148, 163, 184, 0.25);
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.05), rgba(100, 116, 139, 0.03));
+}
+
+/* 3rd place card */
+.lb-card-3 {
+  border-color: rgba(217, 119, 6, 0.25);
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.05), rgba(180, 83, 9, 0.03));
+}
+
+/* Rank Number Badge */
+.lb-rank-num {
+  font-weight: 900;
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+  padding: 0.25rem 0.65rem;
+  border-radius: 8px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.lb-rank-1 {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #78350f;
+  box-shadow: 0 2px 10px rgba(251, 191, 36, 0.3);
+}
+
+.lb-rank-2 {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+  color: #0f172a;
+  box-shadow: 0 2px 10px rgba(148, 163, 184, 0.2);
+}
+
+.lb-rank-3 {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.2);
+}
+
+/* Student Info */
+.lb-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lb-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #f1f5f9;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.lb-score {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  line-height: 1.3;
+}
+
+.lb-score-1 {
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+}
+
+.lb-score-2 {
+  color: #94a3b8;
+}
+
+.lb-score-3 {
+  color: #d97706;
+}
+
+/* Close / Dismiss Button */
+.lb-close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+.lb-close-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================
+   RESPONSIVE OVERHAUL
+   ============================================ */
+
+/* --- Tablets (1024px) --- */
+@media (max-width: 1024px) {
+  .top-nav {
+    padding: 0.6rem 0;
+  }
+
+  .hero-card h1 {
+    font-size: clamp(1.8rem, 6vw, 2.8rem);
+  }
+
+  .main-grid {
+    padding-top: 12rem;
+    width: 96%;
+  }
+
+  .topbar {
+    width: 96%;
+  }
+
+  .leaderboard-bar {
+    top: 80px;
+    height: 62px;
+    width: calc(100% - 2.5rem);
+  }
+
+  .lb-title {
+    padding: 0 1.2rem 0 1rem;
+  }
+
+  .lb-card {
+    padding: 0.35rem 1rem 0.35rem 0.7rem;
+  }
+
+  .lb-name {
+    font-size: 0.85rem;
+  }
+
+  .war-room-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+/* --- Mobile Landscape / Tablets Portrait (768px) --- */
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 0.8rem 0.6rem 1.5rem;
+  }
+
+  .nav-container {
+    padding: 0 1rem;
+    gap: 1rem;
+  }
+
+  .main-grid {
+    padding-top: 13rem;
+  }
+
+  .nav-brand {
+    transform: scale(0.9);
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .split-card {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 1.25rem;
+    border-radius: 20px;
+  }
+
+  .feature-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cta-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cta-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .modal-content {
+    width: 94%;
+    padding: 1.5rem;
+    margin: 1rem auto;
+  }
+
+  .review-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Leaderboard — compact */
+  .leaderboard-bar {
+    top: 75px;
+    width: calc(100% - 1.5rem);
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  .lb-title {
+    padding: 0 0.8rem;
+  }
+
+  .lb-title-text {
+    font-size: 0.6rem;
+    letter-spacing: 2.5px;
+  }
+
+  .lb-trophy {
+    font-size: 1.1rem;
+  }
+
+  .lb-students {
+    gap: 0.6rem;
+    padding: 0 0.6rem;
+  }
+
+  .lb-card {
+    padding: 0.3rem 0.8rem 0.3rem 0.5rem;
+    gap: 0.5rem;
+    border-radius: 10px;
+  }
+
+  .lb-name {
+    font-size: 0.78rem;
+  }
+
+  .lb-score {
+    font-size: 0.58rem;
+  }
+
+  .lb-rank-num {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .war-room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .war-card {
+    padding: 1.2rem;
+  }
+}
+
+/* --- Small Phones (480px) --- */
+@media (max-width: 480px) {
+  .logo5d-main {
+    font-size: 1.6rem;
+  }
+
+  .hero-card h1 {
+    font-size: 1.8rem;
+  }
+
+  .toast-stack {
+    width: 90vw;
+    left: 5vw;
+    right: 5vw;
+    top: 5rem;
+  }
+
+  .stat-number {
+    font-size: 1.8rem;
+  }
+
+  .main-grid {
+    padding-top: 14rem;
+  }
+
+  /* Leaderboard — stacked vertical */
+  .leaderboard-bar {
+    top: 65px;
+    width: calc(100% - 1rem);
+    height: auto;
+    min-height: 50px;
+    flex-direction: column;
+    border-radius: 12px;
+    padding: 0;
+  }
+
+  .lb-accent {
+    display: none;
+  }
+
+  .lb-title {
+    width: 100%;
+    justify-content: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .lb-divider {
+    display: none;
+  }
+
+  .lb-students {
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem;
+    width: 100%;
+  }
+
+  .lb-card {
+    width: 100%;
+    padding: 0.35rem 0.8rem;
+    gap: 0.5rem;
+  }
+
+  .lb-name {
+    font-size: 0.75rem;
+  }
+
+  .lb-score {
+    font-size: 0.56rem;
+  }
+
+  .lb-rank-num {
+    font-size: 0.58rem;
+    padding: 0.18rem 0.45rem;
+  }
+
+  /* Buttons full-width */
+  .btn,
+  .btn-primary,
+  .btn-success,
+  .btn-soft {
+    width: 100%;
+    text-align: center;
+  }
+
+  .card {
+    padding: 1rem;
+    border-radius: 16px;
+  }
+
+  .nav-container {
+    padding: 0 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .nav-actions {
+    gap: 0.4rem;
+  }
+
+  .modal-content {
+    width: 98%;
+    padding: 1rem;
+    border-radius: 16px;
+  }
+}
+
+/* Global Export Button Styling */
+.btn-success.btn-large {
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 5px 15px rgba(16, 185, 129, 0.2);
+}
+
+.btn-success.btn-large:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+  background: #10b981;
+}
+
+.btn-success.btn-large:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
