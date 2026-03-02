@@ -7,6 +7,7 @@ const crypto = require("crypto");
 const natural = require("natural");
 const pdfParse = require("pdf-parse");
 const { v4: uuidv4 } = require("uuid");
+const admin = require("firebase-admin");
 
 function loadDotEnv(envPath) {
   try {
@@ -26,8 +27,24 @@ function loadDotEnv(envPath) {
   }
 }
 
-// Load env before services
+// Load env before ANY services
 loadDotEnv(path.join(__dirname, "..", ".env"));
+
+// Initialize Firebase Admin with credentials from environment variable if available
+// This should be the JSON content of your Service Account Key
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("Firebase Admin initialized successfully.");
+  } catch (error) {
+    console.error("Firebase Admin initialization error:", error.message);
+  }
+} else {
+  console.warn("FIREBASE_SERVICE_ACCOUNT not found in environment. Firebase auth verification will fail.");
+}
 
 let mongoose = null;
 try {
@@ -242,6 +259,7 @@ if (mongoose) {
       name: String,
       email: { type: String, unique: true, index: true },
       passwordHash: String,
+      firebaseUid: { type: String, index: true },
       role: { type: String, enum: ROLES, default: "student" },
       isApproved: { type: Boolean, default: false },
       createdAt: Date
@@ -1704,6 +1722,79 @@ app.post("/api/auth/signup", async (req, res) => {
 
   const token = issueToken(user);
   return res.status(201).json({ token, user: sanitizeUser(user) });
+});
+
+app.post("/api/auth/firebase", async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) return res.status(400).json({ error: "Missing Firebase ID Token." });
+
+  try {
+    // 1. Verify the Firebase Token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name, picture } = decodedToken;
+
+    // 2. Find or Create the User
+    let userId = usersByEmail.get(email.toLowerCase());
+    let user = userId ? users.get(userId) : null;
+
+    if (!user && dbReady) {
+      const userDoc = await UserModel.findOne({
+        $or: [{ firebaseUid: uid }, { email: email.toLowerCase() }]
+      }).lean();
+      if (userDoc) {
+        user = {
+          id: String(userDoc._id),
+          name: userDoc.name,
+          email: userDoc.email,
+          passwordHash: userDoc.passwordHash,
+          firebaseUid: userDoc.firebaseUid,
+          role: userDoc.role,
+          isApproved: Boolean(userDoc.isApproved),
+          createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
+        };
+        users.set(user.id, user);
+        usersByEmail.set(user.email, user.id);
+      }
+    }
+
+    if (!user) {
+      // Auto-create new student user for first-time Google Sign-In
+      user = {
+        id: uuidv4(),
+        name: name || email.split("@")[0],
+        email: email.toLowerCase(),
+        passwordHash: "$2b$10$google_oauth_placeholder", // Not used for OAuth users
+        firebaseUid: uid,
+        role: "student",
+        isApproved: true,
+        createdAt: new Date().toISOString()
+      };
+      users.set(user.id, user);
+      usersByEmail.set(user.email, user.id);
+
+      if (dbReady) {
+        await persistUser(user);
+        await logHistory(user.id, "signup_google", { email: user.email });
+      }
+    } else if (!user.firebaseUid) {
+      // Link Firebase UID to existing account if it wasn't linked
+      user.firebaseUid = uid;
+      if (dbReady) {
+        await UserModel.updateOne({ _id: user.id }, { $set: { firebaseUid: uid } });
+      }
+    }
+
+    // 3. Issue our standard JWT token
+    const token = issueToken(user);
+    if (dbReady) {
+      await logHistory(user.id, "login_google", { email: user.email });
+    }
+
+    return res.json({ token, user: sanitizeUser(user) });
+  } catch (error) {
+    console.error("Firebase Auth Bridge Error:", error.message);
+    return res.status(401).json({ error: "Firebase token verification failed." });
+  }
 });
 
 app.post("/api/auth/login", async (req, res) => {

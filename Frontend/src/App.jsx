@@ -10,6 +10,8 @@ import { OrbitControls } from "@react-three/drei";
 import KnowledgeOrbit from "./components/KnowledgeOrbit";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import SoundscapeEngine from "./components/SoundscapeEngine";
+import { auth, googleProvider } from "./firebase";
+import { signInWithPopup } from "firebase/auth";
 
 import * as tf from "@tensorflow/tfjs";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
@@ -319,7 +321,7 @@ function getBrowserFingerprint() {
   return `FP-${Math.abs(hash).toString(16)}`;
 }
 
-function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm, error }) {
+function AuthModal({ open, mode, onMode, onClose, onSubmit, onGoogleSignIn, busy, form, setForm, error }) {
   if (!open) return null;
 
   return (
@@ -342,6 +344,12 @@ function AuthModal({ open, mode, onMode, onClose, onSubmit, busy, form, setForm,
             onSubmit();
           }}
         >
+          <button type="button" className="btn-google" onClick={onGoogleSignIn} disabled={busy}>
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+            {busy ? "Connecting..." : "Continue with Google"}
+          </button>
+
+          <div className="modal-divider">or use email</div>
           {mode === "signup" && (
             <>
               <label>
@@ -1225,6 +1233,30 @@ export default function App() {
     return () => stopExamEnvironment();
   }, []);
 
+  async function handleGoogleSignIn() {
+    setAuthError("");
+    setBusy(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      const { data } = await axios.post(`${API_BASE}/auth/firebase`, { idToken });
+
+      localStorage.setItem(TOKEN_KEY, data.token);
+      setToken(data.token);
+      setUser(data.user);
+      setAuthOpen(false);
+      setAuthError("");
+      await loadRoleData(data.user, data.token);
+      await fetchLeaderboard(data.token);
+      pushToast("Signed in with Google successfully!", "success");
+    } catch (err) {
+      console.error("Google Sign-In Error:", err);
+      setAuthError(appError(err, "Google Sign-In failed."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitAuth() {
     setAuthError("");
     setBusy(true);
@@ -1668,13 +1700,8 @@ export default function App() {
   }
 
   async function logout() {
-    try {
-      if (token) await axios.post(`${API_BASE}/auth/logout`, {}, authConfig(token));
-    } catch (_err) {
-      // ignore logout errors
-    }
-
-    stopExamEnvironment();
+    // 1. Clear local state immediately for instant UI response
+    const currentToken = token;
     localStorage.removeItem(TOKEN_KEY);
     setToken("");
     setUser(null);
@@ -1683,7 +1710,28 @@ export default function App() {
     setQuizId("");
     setQuestion(null);
     setResult(null);
+
+    try {
+      stopExamEnvironment();
+    } catch (e) {
+      console.error("Error stopping exam environment:", e);
+    }
+
     pushToast("Logged out.", "info");
+
+    // 2. Firebase Sign Out
+    try {
+      await auth.signOut();
+    } catch (e) {
+      console.error("Firebase sign out error:", e);
+    }
+
+    // 3. Backend Sign Out (Don't block UI if it's slow)
+    if (currentToken) {
+      axios.post(`${API_BASE}/auth/logout`, {}, authConfig(currentToken)).catch((err) => {
+        console.warn("Backend logout notification failed:", err.message);
+      });
+    }
   }
 
   async function refreshAdminUsers() {
@@ -2560,6 +2608,7 @@ export default function App() {
           onMode={setAuthMode}
           onClose={() => setAuthOpen(false)}
           onSubmit={submitAuth}
+          onGoogleSignIn={handleGoogleSignIn}
           busy={busy}
           form={authForm}
           setForm={setAuthForm}
