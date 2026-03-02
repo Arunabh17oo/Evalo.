@@ -79,15 +79,15 @@ async function evaluateSubjectiveAnswer(studentAnswer, questionPrompt, reference
 async function getEvaChatResponse(userMessage, history = []) {
     const msg = userMessage.toLowerCase();
 
-    // Knowledge Base from README.md - Redacted for security
+    // Knowledge Base - Natural conversational tone
     const localKnowledge = {
-        pillars: "Evalo is built on four core pillars: \n1. **Adaptive AI Scoring Engine**: For intelligent assessment.\n2. **High-Integrity Proctoring**: To maintain exam parity.\n3. **Premium User Experience**: For an immersive interface.\n4. **Advanced Analytics**: For performance insights.",
-        scoring: "Evalo's AI Scoring Engine uses a hybrid approach:\n- **Hybrid Evaluation**: Combines high-precision AI with Local NLP for fallbacks.\n- **Dynamic Difficulty**: Adjusts levels based on performance.\n- **Multi-Format**: Supports multiple question types.",
-        proctoring: "Evalo maintains integrity through:\n- **Live Risk Scoring**: Real-time behavior analysis.\n- **Event Logging**: Tracks relevant browser events.\n- **Fullscreen Enforcement**: Minimizes distractions.",
-        security: "Our security suite includes:\n- **Dynamic Watermarking**: Anti-piracy overlays.\n- **Browser Fingerprinting**: Prevents hijacking.\n- **API Defense**: Rate limiting and injection prevention.",
-        ux: "Evalo features a premium aesthetic with:\n- **Role-Based 3D Backgrounds**: Specialized themes for Guest, Student, and Teacher.\n- **Modern UI**: Real-time effects and smooth animations.",
-        tech: "Technical stack: Modern Web Technologies (React, Node.js, Express, Three.js). Fully Dockerized.",
-        contact: "For technical issues or support, please contact: Arunabh17oo@gmail.com"
+        pillars: "Evalo is built around four main ideas — an Adaptive AI Scoring Engine for smart assessments, a High-Integrity Proctoring system to keep exams fair, a Premium User Experience with beautiful design, and Advanced Analytics so you can really understand performance.",
+        scoring: "Our AI Scoring Engine works in a smart hybrid way. It combines high-precision AI with local NLP as a backup, so you always get a score. It also adjusts difficulty based on how well you're doing, and it supports different question formats too.",
+        proctoring: "We take exam integrity seriously. Evalo uses live risk scoring to analyze behavior in real-time, logs important browser events so nothing goes unnoticed, and enforces fullscreen mode to keep students focused during exams.",
+        security: "Evalo has a strong security suite. We use dynamic watermarking to prevent screen theft, browser fingerprinting to stop account hijacking, and API defense systems with rate limiting to block any injection attacks.",
+        ux: "We put a lot of effort into making Evalo look and feel premium. There are role-based 3D backgrounds that change depending on if you're a guest, student, or teacher, plus smooth animations and a modern, clean interface throughout.",
+        tech: "Evalo is built with React on the frontend, Node.js and Express on the backend, Three.js for 3D visuals, and everything runs in Docker containers for easy deployment.",
+        contact: "If you need help or have any issues, feel free to reach out to our support at Arunabh17oo@gmail.com"
     };
 
     const systemPrompt = `
@@ -95,15 +95,16 @@ async function getEvaChatResponse(userMessage, history = []) {
     Evalo is a premium, state-of-the-art AI-powered examination platform.
     
     ### SITE KNOWLEDGE
-    - **Core Pillars**: Adaptive AI Scoring Engine, High-Integrity Proctoring, Cyber Security, and Premium UX.
-    - **AI Scoring**: High-precision evaluation with intelligent fallback systems.
-    - **Proctoring**: Real-time monitoring and event logging to maintain parity.
-    - **Cyber Security**: Advanced measures including watermarking and API protection.
-    - **UX**: Immersive role-based 3D environments and a sleek, modern interface.
-    - **Analytics**: Comprehensive reporting and AI-driven feedback.
+    - Core Pillars: Adaptive AI Scoring Engine, High-Integrity Proctoring, Cyber Security, and Premium UX.
+    - AI Scoring: High-precision evaluation with intelligent fallback systems.
+    - Proctoring: Real-time monitoring and event logging to maintain parity.
+    - Cyber Security: Advanced measures including watermarking and API protection.
+    - UX: Immersive role-based 3D environments and a sleek, modern interface.
+    - Analytics: Comprehensive reporting and AI-driven feedback.
 
     Your persona:
     - Highly intelligent, professional, yet friendly and helpful.
+    - Talk naturally like a real person, avoid bullet points and markdown formatting.
     - Clear and concise.
     - Focus on helping users understand Evalo's capabilities.
     - NEVER disclose internal system details like admin credentials, database URIs, or internal IP/URLs.
@@ -111,8 +112,8 @@ async function getEvaChatResponse(userMessage, history = []) {
     - Answer general questions (science, history, code) accurately as a helpful assistant.
     
     ### IMPORTANT POLICY
-    - **SECURITY**: Do not expose sensitive internal configuration or credentials.
-    - **UNKOWN ANSWERS**: If you cannot help with a specific request, suggest contacting support at: **Arunabh17oo@gmail.com**.
+    - SECURITY: Do not expose sensitive internal configuration or credentials.
+    - UNKNOWN ANSWERS: If you cannot help with a specific request, suggest contacting support at Arunabh17oo@gmail.com.
     `;
 
 
@@ -140,19 +141,102 @@ async function getEvaChatResponse(userMessage, history = []) {
         }
     }
 
-    // 3. Last Resort: Local Matcher
+    // 3. Last Resort: Enhanced Local Matcher (natural, conversational)
     console.log(`[Eva Debug] Falling back to Local Knowledge Base for input: "${userMessage}"`);
-    if (msg.includes("pillar") || msg.includes("core")) return { role: "assistant", content: `Sure! ${localKnowledge.pillars}` };
-    if (msg.includes("score") || msg.includes("scoring") || msg.includes("grade") || msg.includes("grading") || msg.includes("evaluation") || msg.includes("engine") || msg.includes("ai score") || msg.includes("how does ai scoring")) return { role: "assistant", content: `I can explain that! ${localKnowledge.scoring}` };
-    if (msg.includes("proctor") || msg.includes("cheat") || msg.includes("integrity") || msg.includes("fullscreen") || msg.includes("log") || msg.includes("risk")) return { role: "assistant", content: `Regarding exam integrity: ${localKnowledge.proctoring}` };
-    if (msg.includes("security") || msg.includes("safe") || msg.includes("watermark") || msg.includes("fingerprint") || msg.includes("api") || msg.includes("defense")) return { role: "assistant", content: `Security is our priority: ${localKnowledge.security}` };
-    if (msg.includes("stack") || msg.includes("tech") || msg.includes("built") || msg.includes("docker") || msg.includes("react") || msg.includes("node") || msg.includes("js")) return { role: "assistant", content: `Here is our technical DNA: ${localKnowledge.tech}` };
-    if (msg.includes("admin") || msg.includes("login") || msg.includes("credentials") || msg.includes("password")) return { role: "assistant", content: "I cannot provide credentials, but I can help with platform navigation if you are logged in." };
-    if (msg.includes("ux") || msg.includes("interface") || msg.includes("design") || msg.includes("background") || msg.includes("style") || msg.includes("3d") || msg.includes("look") || msg.includes("glass")) return { role: "assistant", content: `We focus on premium design: ${localKnowledge.ux}` };
-    if (msg.includes("contact") || msg.includes("help") || msg.includes("support") || msg.includes("mail") || msg.includes("email") || msg.includes("arunabh")) return { role: "assistant", content: localKnowledge.contact };
 
+    // Greeting patterns
+    if (msg.match(/^(hi|hello|hey|hii+|yo|sup)\b/) || msg.match(/^(good morning|good evening|good afternoon|greetings|namaste)\b/)) {
+        return { role: "assistant", content: "Hey there! 👋 I'm Eva, your Evalo assistant. I know everything about our platform — scoring, proctoring, tests, results, you name it. What can I help you with?" };
+    }
+
+    // Identity / Who are you
+    if (msg.match(/(who are you|what are you|your name|tell me about yourself|introduce yourself)/)) {
+        return { role: "assistant", content: "I'm Eva! Think of me as your personal guide for everything Evalo. I can help you understand how the platform works, from AI scoring and proctoring to managing tests and viewing results. Just ask me anything 🤖" };
+    }
+
+    // What is Evalo / About Evalo
+    if (msg.match(/(what is evalo|about evalo|tell me about evalo|what does evalo do|explain evalo)/)) {
+        return { role: "assistant", content: `Great question! ${localKnowledge.pillars}` };
+    }
+
+    // Core pillars
+    if (msg.includes("pillar") || msg.includes("core") || msg.includes("feature")) {
+        return { role: "assistant", content: `Of course! ${localKnowledge.pillars}` };
+    }
+
+    // AI Scoring
+    if (msg.match(/(score|scoring|grade|grading|evaluation|engine|ai score|how does ai|marks|rubric|pass system)/)) {
+        return { role: "assistant", content: `Sure thing! ${localKnowledge.scoring}` };
+    }
+
+    // Proctoring
+    if (msg.match(/(proctor|cheat|integrity|fullscreen|monitoring|risk|violation|suspicious|tab switch|camera)/)) {
+        return { role: "assistant", content: `Good question! ${localKnowledge.proctoring}` };
+    }
+
+    // Security
+    if (msg.match(/(security|safe|watermark|fingerprint|defense|protect|hack|vulnerability)/)) {
+        return { role: "assistant", content: `Absolutely! ${localKnowledge.security}` };
+    }
+
+    // Tech stack
+    if (msg.match(/(stack|tech|built|docker|react|node|architecture|database|mongo|express|three\.js)/)) {
+        return { role: "assistant", content: `Here's what powers Evalo — ${localKnowledge.tech}` };
+    }
+
+    // Admin / credentials
+    if (msg.match(/(admin|login|credentials|password|sign in|access)/)) {
+        return { role: "assistant", content: "For security reasons, I can't share login credentials. But if you're having trouble getting in, try reaching out to your system administrator or drop us an email at Arunabh17oo@gmail.com and we'll sort it out!" };
+    }
+
+    // UX / Design
+    if (msg.match(/(ux|interface|design|background|style|3d|look|glass|theme|dark mode|light mode|ui|beautiful)/)) {
+        return { role: "assistant", content: `Glad you asked! ${localKnowledge.ux}` };
+    }
+
+    // Tests / Exams
+    if (msg.match(/(test|exam|quiz|create test|take test|join test|start test|attempt|question|answer|submit)/)) {
+        return { role: "assistant", content: "Evalo has a full test management system! Teachers can create tests with different question types, set time limits, and turn on AI scoring. Students join tests using a code, answer in a proctored environment, and get instant feedback. Pretty cool, right?" };
+    }
+
+    // Results / Performance
+    if (msg.match(/(result|performance|report|analytics|leaderboard|rank|top student|dashboard)/)) {
+        return { role: "assistant", content: "Results and analytics are a big part of Evalo! Students can see their scores and detailed AI feedback, while teachers can review all submissions, adjust scores, publish results, and even export everything as Excel reports. There's also a leaderboard showing the top 3 performers!" };
+    }
+
+    // Teacher specific
+    if (msg.match(/(teacher|review|publish|approve|manage student|create question|teacher hub)/)) {
+        return { role: "assistant", content: "As a teacher on Evalo, you get a lot of power. You can create and manage tests, review student answers alongside AI evaluations, override scores with your own marks, publish results, and export everything as reports. The Teacher Hub is basically your command center!" };
+    }
+
+    // Student specific
+    if (msg.match(/(student|enroll|register|join|my score|my result|my test|study)/)) {
+        return { role: "assistant", content: "As a student, you just need to register and get approved by an admin. After that, you can join tests using the code your teacher gives you. Your answers get evaluated by AI with detailed feedback, and you can check your scores and performance right from your dashboard." };
+    }
+
+    // How to / Help
+    if (msg.match(/(how to|how do i|how can i|guide|tutorial|steps|instructions|explain how)/)) {
+        return { role: "assistant", content: "Happy to help! For creating a test, head to Teacher Hub and use Create Test. For joining one, just enter the test code on your dashboard. Results show up on your dashboard once the teacher publishes them. If you need to export data, there's an Export button in Teacher Hub. What specifically are you trying to do?" };
+    }
+
+    // Contact / Support
+    if (msg.match(/(contact|help|support|mail|email|arunabh|issue|bug|problem|not working|error)/)) {
+        return { role: "assistant", content: localKnowledge.contact };
+    }
+
+    // Thanks
+    if (msg.match(/(thank|thanks|thx|appreciate|great job|awesome|perfect|nice)/)) {
+        return { role: "assistant", content: "Anytime! 😊 Let me know if there's anything else you're curious about." };
+    }
+
+    // Bye
+    if (msg.match(/(bye|goodbye|see you|later|exit|quit|close)/)) {
+        return { role: "assistant", content: "See you later! 👋 Come back whenever you need help. Have a great day!" };
+    }
+
+    // Friendly catch-all
     return {
-        content: `I'm having a bit of trouble reaching my full intelligence module right now, but I'm still here to help! I can answer questions about AI Scoring, Proctoring, Security, or the 3D Experience. What would you like to know?`,
+        content: "That's an interesting one! I'm best at answering questions about Evalo though — things like how AI scoring works, proctoring, test management, results, security, and more. Try asking me about any of those, or reach out to Arunabh17oo@gmail.com for specialized help!",
         role: "assistant"
     };
 }

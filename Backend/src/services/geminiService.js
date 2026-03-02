@@ -65,11 +65,13 @@ async function getGeminiResponse(userMessage, history = [], systemPrompt = "") {
                 };
             } catch (error) {
                 lastError = error;
-                // Silent fallback for 404s, log others
-                if (!error.message.includes("404") && !error.message.includes("not found")) {
-                    console.error(`[Gemini Debug] Model ${modelId} failed:`, error.message);
-                    break;
+                // Continue to next model on 404/not-found AND 429/rate-limit
+                if (error.message.includes("404") || error.message.includes("not found") || error.message.includes("429") || error.message.includes("quota")) {
+                    console.log(`[Gemini Debug] Model ${modelId} unavailable, trying next...`);
+                    continue;
                 }
+                console.error(`[Gemini Debug] Model ${modelId} failed:`, error.message);
+                break;
             }
         }
 
