@@ -6,6 +6,13 @@ Evalo is a premium, state-of-the-art AI-powered examination platform designed fo
 
 ## ✨ The Core Pillars
 
+### 🔐 Authentication & Identity
+Evalo uses a robust, hybrid identity system for seamless and secure access:
+- **Social Integration**: One-tap **Sign in with Google** via Firebase Authentication.
+- **Enterprise Ready**: Traditional Email/Password flows with salted Hashing.
+- **Secure Token Bridge**: Firebase ID tokens are securely exchanged for Evalo JWTs via a custom backend verification layer using **Firebase Admin SDK**.
+- **Role Mastery**: Permission-based access control for Students, Teachers, and Admins.
+
 ### 🧠 PASS - Proctor-Aware Semantic Scoring
 Evalo doesn't just grade; it understands. Our proprietary **PASS Engine** provides rigorous, evidence-based evaluation.
 - **Multi-Criteria Rubric**: Every subjective answer is scored across three dimensions: **Factual Accuracy (50%)**, **Completeness (30%)**, and **Clarity & Logic (20%)**.
@@ -45,12 +52,34 @@ Built with a "Design-First" philosophy, Evalo offers a breathtaking environment 
 ## 🛠️ Technical Architecture
 
 ### The Tech Stack
-- **Frontend**: React 18, Vite, Three.js (`@react-three/fiber`), Framer Motion, TensorFlow.js, jsPDF.
-- **Backend**: Node.js, Express, Multer, Natural (Local NLP), OpenAI/Gemini API integration.
+- **Frontend**: React 18, Vite, Three.js (`@react-three/fiber`), Framer Motion, TensorFlow.js, jsPDF, **Firebase Client SDK**.
+- **Backend**: Node.js, Express, Multer, Natural (Local NLP), OpenAI/Gemini API, **Firebase Admin SDK**.
 - **Persistence**: Dual-support for **MongoDB** (Production) or **Local JSON Storage** (Development).
 - **Infrastrucute**: Fully **Dockerized** with orchestrated services.
 
 ## 🚀 Setup & Installation
+
+### Environment Configuration
+Create `.env` files in both directories before starting.
+
+**Frontend (`Frontend/.env`)**:
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+
+**Backend (`Backend/.env`)**:
+```env
+PORT=5050
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+FIREBASE_SERVICE_ACCOUNT={"type": "service_account", ...}
+GEMINI_API_KEY=your_gemini_key
+```
 
 ### Option 1: Docker (Zero Configuration)
 The fastest way to deploy the entire Evalo stack (Frontend, Backend, MongoDB):
