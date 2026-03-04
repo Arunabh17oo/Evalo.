@@ -109,4 +109,3 @@ The fastest way to deploy the entire Evalo stack (Frontend, Backend, MongoDB):
 > [!IMPORTANT]
 > **Default Admin Access**: `admin@evalo.ai` / `admin123`
 
-*Self-evolving intelligence for modern education.*
