@@ -14,8 +14,8 @@ async function getGeminiResponse(userMessage, history = [], systemPrompt = "") {
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
 
-        // Use verified model IDs. gemini-2.0-flash is confirmed working with this key.
-        const modelsToTry = ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-pro"];
+        // Use verified model IDs. gemini-1.5-flash is highly stable.
+        const modelsToTry = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-pro"];
         let lastError = null;
 
         for (const modelId of modelsToTry) {

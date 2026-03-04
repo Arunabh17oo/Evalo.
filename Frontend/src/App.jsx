@@ -1710,6 +1710,20 @@ export default function App() {
     setQuizId("");
     setQuestion(null);
     setResult(null);
+    setMyAttempts([]);
+    setAnalyticsData(null);
+    setTeacherBooks([]);
+    setTeacherTests([]);
+    setAdminUsers([]);
+    setLeaderboard([]);
+    setAdminStats(null);
+    setProctorLogs(null);
+    setTestAnalytics(null);
+    setSelectedAttempt(null);
+    setSelectedAttemptDetail(null);
+    setSelectedAttemptResult(null);
+    setJoinedTest(null);
+    setCreatedTest(null);
 
     try {
       stopExamEnvironment();
@@ -2644,8 +2658,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* Universal Leaderboard Ticker - Global Visibility */}
-        {user && !examActive && (
+        {/* Universal Leaderboard Ticker - Only visible if student has history or is teacher/admin */}
+        {user && !examActive && (isTeacher || (isStudent && myAttempts.length > 0)) && (
           <LeaderboardTicker data={leaderboard} loading={loadingLeaderboard} />
         )}
 
@@ -3922,8 +3936,8 @@ export default function App() {
 
                       {!examActive ? (
                         <div>
-                          {/* Dynamic 3D Knowledge Map for Students */}
-                          {isStudent && analyticsData && (
+                          {/* Dynamic 3D Knowledge Map for Students - Only if they have attempts */}
+                          {isStudent && analyticsData && myAttempts.length > 0 && (
                             <div className="card split-card gap-top" style={{ padding: 0, overflow: 'hidden', minHeight: '350px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', position: 'relative', marginBottom: '2rem' }}>
                               <div style={{ position: 'absolute', top: '20px', left: '25px', zIndex: 10 }}>
                                 <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>🕸️ Knowledge Orbit</h2>
