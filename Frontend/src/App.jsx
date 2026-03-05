@@ -488,26 +488,86 @@ function AddUserModal({ open, onClose, onSubmit, busy, form, setForm, error }) {
   );
 }
 
+function GoogleRoleModal({ open, onCancel, onSubmit, busy, form, setForm }) {
+  if (!open) return null;
+  return (
+    <div className="modal-overlay">
+      <motion.div
+        className="modal-glass"
+        initial={{ opacity: 0, scale: 0.95, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        style={{ width: 'min(480px, 94%)' }}
+      >
+        <div className="modal-header-with-logo">
+          <img src="/evalo-logo.png" alt="Evalo Logo" className="modal-logo" />
+          <h3>Welcome! One final step</h3>
+        </div>
+        <p className="subtitle" style={{ textAlign: 'center', marginBottom: '1.5rem', fontSize: 'clamp(0.9rem, 2.5vw, 1rem)' }}>
+          Please select your role and confirm your name to complete your registration.
+        </p>
+
+        <form
+          className="form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          <div className="input-group">
+            <label>Full Name</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+              placeholder="Enter your full name"
+              required
+            />
+          </div>
+          <div className="input-group">
+            <label>I am a:</label>
+            <select
+              className="input-select"
+              value={form.role}
+              onChange={(e) => setForm((v) => ({ ...v, role: e.target.value }))}
+              required
+            >
+              <option value="student">Student</option>
+              <option value="teacher">Teacher / Professor</option>
+            </select>
+          </div>
+          <div className="row gap-top modal-footer-spaced" style={{ marginTop: '2rem' }}>
+            <button type="button" className="btn-soft" onClick={onCancel} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? "Finishing..." : "Complete Sign Up"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 function PendingApprovalView({ user, onRefresh, busy, darkMode }) {
   return (
-    <div className="card big-card centered-text" style={{ padding: '4rem 2rem' }}>
-      <img src="/evalo-logo.png" alt="Evalo" style={{ width: '80px', marginBottom: '2rem' }} />
+    <div className="card big-card centered-text pending-approval-card">
+      <img src="/evalo-logo.png" alt="Evalo" className="pending-approval-logo" />
       <div className="gap-top">
-        <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800 }}>Welcome to Evalo, {user.name}!</h2>
-        <div className="pill warning" style={{ fontSize: '1.2rem', padding: '0.8rem 1.5rem', display: 'inline-block' }}>
+        <h2 className="pending-approval-title">Welcome to Evalo, {user.name}!</h2>
+        <div className="pill warning pending-approval-pill">
           🔒 Your Account is Pending Approval
         </div>
-        <p className="subtitle gap-top" style={{ maxWidth: '600px', margin: '2rem auto', fontSize: '1.1rem', color: darkMode ? '#def0ff' : '#475569' }}>
+        <p className={`subtitle gap-top pending-approval-text ${darkMode ? 'dark' : ''}`}>
           Our administrators are currently reviewing your request for a <strong>{user.role}</strong> account.
           You will gain full access to Evalo's features once your profile is verified.
           Please check back shortly!
         </p>
-        <div className="row gap-top" style={{ justifyContent: 'center' }}>
+        <div className="row gap-top feature-tags-center">
           <button className="cta-button" onClick={onRefresh} disabled={busy}>
             <span>{busy ? "Checking..." : "Check Approval Status"}</span>
           </button>
         </div>
-        <div className="row gap-top" style={{ justifyContent: 'center', gap: '1rem', opacity: 0.5 }}>
+        <div className="row gap-top feature-tags-center">
           <div className="feature-tag">Proctored Exams</div>
           <div className="feature-tag">AI Analysis</div>
           <div className="feature-tag">Real-time Analytics</div>
@@ -527,9 +587,9 @@ function AnalyticsModal({ open, onClose, data }) {
         initial={{ opacity: 0, scale: 0.95, y: 18 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
       >
-        <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+        <div className="analytics-modal-header">
           <h3>📊 Test Analytics: {data.testTitle}</h3>
-          <button className="btn-close" onClick={onClose} style={{ background: "none", border: "none", color: "white", fontSize: "1.5rem", cursor: "pointer" }}>&times;</button>
+          <button className="analytics-close" onClick={onClose}>&times;</button>
         </div>
 
         {data.empty ? (
@@ -537,15 +597,14 @@ function AnalyticsModal({ open, onClose, data }) {
             <p className="hint">No student attempts yet for this test.</p>
           </div>
         ) : (
-          <>
-            <div className="analytics-visual" style={{ height: "300px", background: "rgba(0,0,0,0.2)", borderRadius: "16px", marginBottom: "1.5rem", overflow: "hidden", position: "relative" }}>
+          <div className="analytics-content-scroll">
+            <div className="analytics-visual-container">
               <Canvas camera={{ position: [0, 0, 8] }}>
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <KnowledgeOrbit
                   data={data}
                   onTopicClick={(topic) => {
-                    // Pre-fill chatbot if clicked
                     const evaBubble = document.querySelector('.eva-bubble');
                     if (evaBubble) {
                       evaBubble.click();
@@ -563,40 +622,43 @@ function AnalyticsModal({ open, onClose, data }) {
                 />
                 <OrbitControls enableZoom={false} />
               </Canvas>
-              <div style={{ position: "absolute", bottom: "10px", right: "15px", pointerEvents: "none", fontSize: "0.7rem", opacity: 0.5 }}>
+              <div className="analytics-visual-label">
                 Interactive 3D Knowledge Map
               </div>
             </div>
-            <div className="analytics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
-              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Score</label>
-                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageScore} / {data.maxMarks}</div>
-                <div className="mini-progress-bar" style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+
+            <div className="analytics-grid-container">
+              <div className="analytics-stat-card">
+                <label className="analytics-stat-label">Average Score</label>
+                <div className="analytics-stat-value">{data.averageScore} / {data.maxMarks}</div>
+                <div className="analytics-mini-progress">
                   <div
-                    className="mini-progress-fill"
-                    style={{ width: `${(data.averageScore / data.maxMarks) * 100}%`, height: "100%", background: "#3b82f6" }}
+                    className="analytics-progress-fill"
+                    style={{ width: `${(data.averageScore / data.maxMarks) * 100}%` }}
                   />
                 </div>
               </div>
 
-              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Highest Score</label>
-                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.highestScore}</div>
+              <div className="analytics-stat-card">
+                <label className="analytics-stat-label">Highest Score</label>
+                <div className="analytics-stat-value">{data.highestScore}</div>
               </div>
 
-              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Completion Rate</label>
-                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.completionRate}%</div>
-                <p className="hint" style={{ fontSize: "0.75rem" }}>{data.completedCount} / {data.totalStudents} students</p>
+              <div className="analytics-stat-card">
+                <label className="analytics-stat-label">Completion Rate</label>
+                <div className="analytics-stat-value">{data.completionRate}%</div>
+                <p className="analytics-stat-hint">{data.completedCount} / {data.totalStudents} students</p>
               </div>
 
-              <div className="stat-card" style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px" }}>
-                <label style={{ fontSize: "0.8rem", opacity: 0.7 }}>Average Proctor Risk</label>
-                <div className="stat-value" style={{ fontSize: "1.5rem", fontWeight: "bold", margin: "0.5rem 0" }}>{data.averageRisk}%</div>
-                <p className="hint" style={{ fontSize: "0.75rem" }}>Risk: {data.averageRisk < 30 ? "Low" : data.averageRisk < 55 ? "Medium" : "High"}</p>
+              <div className="analytics-stat-card">
+                <label className="analytics-stat-label">Average Proctor Risk</label>
+                <div className="analytics-stat-value">{data.averageRisk}%</div>
+                <p className="analytics-stat-hint">
+                  Risk: {data.averageRisk < 30 ? "Low" : data.averageRisk < 55 ? "Medium" : "High"}
+                </p>
               </div>
 
-              <div className="risk-dist-section" style={{ gridColumn: "1 / -1", marginTop: "1rem" }}>
+              <div className="analytics-stat-card" style={{ gridColumn: "1 / -1" }}>
                 <h4 style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>🛡️ Proctoring Risk Distribution</h4>
                 <div className="risk-bar-chart" style={{ display: "flex", height: "12px", borderRadius: "6px", overflow: "hidden", background: "rgba(255,255,255,0.1)" }}>
                   <div className="risk-segment" style={{ flex: data.riskDistribution?.low || 0, background: "#10b981" }} title="Low Risk"></div>
@@ -612,14 +674,13 @@ function AnalyticsModal({ open, onClose, data }) {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
-        <div className="modal-actions" style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
-          <button className="btn-soft" onClick={onClose}>Close</button>
+        <div className="row gap-top" style={{ justifyContent: "center", marginTop: "1.5rem" }}>
+          <button className="btn-soft" onClick={onClose}>Close Analytics</button>
         </div>
       </motion.div>
-
     </div>
   );
 }
@@ -975,6 +1036,9 @@ export default function App() {
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addUserForm, setAddUserForm] = useState({ name: "", email: "", password: "", role: "student" });
   const [addUserError, setAddUserError] = useState("");
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [googlePendingData, setGooglePendingData] = useState(null);
+  const [googleRoleForm, setGoogleRoleForm] = useState({ name: "", role: "student" });
 
   const fetchAuditLogs = async () => {
     setAdminUtilBusy(true);
@@ -1241,6 +1305,14 @@ export default function App() {
       const idToken = await result.user.getIdToken();
       const { data } = await axios.post(`${API_BASE}/auth/firebase`, { idToken });
 
+      if (data.requiresRoleSelection) {
+        setGooglePendingData(data);
+        setGoogleRoleForm({ name: data.name, role: "student" });
+        setShowRoleModal(true);
+        setAuthOpen(false);
+        return;
+      }
+
       localStorage.setItem(TOKEN_KEY, data.token);
       setToken(data.token);
       setUser(data.user);
@@ -1252,6 +1324,32 @@ export default function App() {
     } catch (err) {
       console.error("Google Sign-In Error:", err);
       setAuthError(appError(err, "Google Sign-In failed."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function completeGoogleSignUp() {
+    if (!googlePendingData) return;
+    setBusy(true);
+    setAuthError("");
+    try {
+      const { data } = await axios.post(`${API_BASE}/auth/firebase-complete`, {
+        idToken: googlePendingData.idToken,
+        role: googleRoleForm.role,
+        name: googleRoleForm.name
+      });
+
+      localStorage.setItem(TOKEN_KEY, data.token);
+      setToken(data.token);
+      setUser(data.user);
+      setShowRoleModal(false);
+      setGooglePendingData(null);
+      await loadRoleData(data.user, data.token);
+      await fetchLeaderboard(data.token);
+      pushToast("Welcome to Evalo! Registration complete.", "success");
+    } catch (err) {
+      setAuthError(appError(err, "Completion failed."));
     } finally {
       setBusy(false);
     }
@@ -2627,6 +2725,15 @@ export default function App() {
           form={authForm}
           setForm={setAuthForm}
           error={authError}
+        />
+
+        <GoogleRoleModal
+          open={showRoleModal}
+          onCancel={() => setShowRoleModal(false)}
+          onSubmit={completeGoogleSignUp}
+          busy={busy}
+          form={googleRoleForm}
+          setForm={setGoogleRoleForm}
         />
 
         {/* Fixed Top Navigation */}

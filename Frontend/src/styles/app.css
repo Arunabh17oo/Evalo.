@@ -3068,6 +3068,30 @@ body.light-mode .pill.danger {
     padding: 1rem;
     border-radius: 16px;
   }
+
+  /* Extreme mobile refinements */
+  @media (max-width: 360px) {
+    .nav-brand {
+      transform: scale(0.8);
+      margin-left: -10px;
+    }
+
+    .logo5d-main {
+      font-size: 1.4rem;
+    }
+
+    .pending-approval-title {
+      font-size: 1.6rem !important;
+    }
+
+    .analytics-modal-header h3 {
+      font-size: 0.95rem !important;
+    }
+
+    .modal-glass {
+      padding: 1rem !important;
+    }
+  }
 }
 
 /* Global Export Button Styling */
@@ -3140,4 +3164,151 @@ body.light-mode .pill.danger {
 
 .modal-divider::after {
   margin-left: 1em;
+}
+
+/* --- Responsive Refactor Utility Classes --- */
+.pending-approval-card {
+  padding: clamp(2rem, 8vw, 4rem) clamp(1rem, 5vw, 2rem) !important;
+  text-align: center;
+}
+
+.pending-approval-logo {
+  width: clamp(60px, 10vw, 80px);
+  margin-bottom: clamp(1.5rem, 4vw, 2rem);
+}
+
+.pending-approval-title {
+  font-size: clamp(1.8rem, 6vw, 2.5rem) !important;
+  margin-bottom: 1rem;
+  font-weight: 800;
+}
+
+.pending-approval-pill {
+  font-size: clamp(1rem, 3vw, 1.2rem) !important;
+  padding: 0.8rem 1.5rem !important;
+  display: inline-block !important;
+}
+
+.pending-approval-text {
+  max-width: 600px;
+  margin: 2rem auto !important;
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem) !important;
+  line-height: 1.6;
+}
+
+.feature-tags-center {
+  justify-content: center !important;
+  gap: clamp(0.5rem, 2vw, 1rem) !important;
+  opacity: 0.5;
+  margin-top: 2rem;
+}
+
+.analytics-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.analytics-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analytics-visual-container {
+  height: clamp(200px, 40vh, 300px);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.analytics-visual-label {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  pointer-events: none;
+  font-size: 0.7rem;
+  opacity: 0.5;
+}
+
+.analytics-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 1rem;
+}
+
+.analytics-stat-card {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.analytics-stat-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.analytics-stat-label {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  display: block;
+}
+
+.analytics-stat-value {
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
+  font-weight: 800;
+  margin: 0.5rem 0;
+  color: #fff;
+}
+
+.analytics-mini-progress {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.analytics-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.6s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+}
+
+.analytics-stat-hint {
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .analytics-modal {
+    width: 96%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .pending-approval-card {
+    min-height: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pending-approval-pill {
+    padding: 0.6rem 1rem !important;
+  }
+
+  .analytics-modal-header h3 {
+    font-size: 1.1rem !important;
+  }
 }

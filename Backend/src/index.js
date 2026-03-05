@@ -1733,24 +1733,20 @@ app.post("/api/auth/firebase", async (req, res) => {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture } = decodedToken;
 
-    // 2. Find or Create the User
-    let userId = usersByEmail.get(email.toLowerCase());
+    const emailNorm = email.toLowerCase();
+    const userId = usersByEmail.get(emailNorm);
     let user = userId ? users.get(userId) : null;
 
     if (!user && dbReady) {
-      const userDoc = await UserModel.findOne({
-        $or: [{ firebaseUid: uid }, { email: email.toLowerCase() }]
-      }).lean();
+      const userDoc = await UserModel.findOne({ email: emailNorm }).lean();
       if (userDoc) {
         user = {
           id: String(userDoc._id),
           name: userDoc.name,
           email: userDoc.email,
-          passwordHash: userDoc.passwordHash,
-          firebaseUid: userDoc.firebaseUid,
           role: userDoc.role,
           isApproved: Boolean(userDoc.isApproved),
-          createdAt: userDoc.createdAt?.toISOString?.() || new Date(userDoc.createdAt).toISOString()
+          firebaseUid: userDoc.firebaseUid
         };
         users.set(user.id, user);
         usersByEmail.set(user.email, user.id);
@@ -1758,26 +1754,16 @@ app.post("/api/auth/firebase", async (req, res) => {
     }
 
     if (!user) {
-      // Auto-create new student user for first-time Google Sign-In
-      user = {
-        id: uuidv4(),
-        name: name || email.split("@")[0],
-        email: email.toLowerCase(),
-        passwordHash: "$2b$10$google_oauth_placeholder", // Not used for OAuth users
-        firebaseUid: uid,
-        role: "student",
-        isApproved: true,
-        createdAt: new Date().toISOString()
-      };
-      users.set(user.id, user);
-      usersByEmail.set(user.email, user.id);
+      // NEW: Instead of auto-creating, tell frontend we need role selection
+      return res.json({
+        requiresRoleSelection: true,
+        idToken,
+        email: emailNorm,
+        name: name || email.split("@")[0]
+      });
+    }
 
-      if (dbReady) {
-        await persistUser(user);
-        await logHistory(user.id, "signup_google", { email: user.email });
-      }
-    } else if (!user.firebaseUid) {
-      // Link Firebase UID to existing account if it wasn't linked
+    if (!user.firebaseUid) {
       user.firebaseUid = uid;
       if (dbReady) {
         await UserModel.updateOne({ _id: user.id }, { $set: { firebaseUid: uid } });
@@ -1794,6 +1780,48 @@ app.post("/api/auth/firebase", async (req, res) => {
   } catch (error) {
     console.error("Firebase Auth Bridge Error:", error.message);
     return res.status(401).json({ error: "Firebase token verification failed." });
+  }
+});
+
+app.post("/api/auth/firebase-complete", async (req, res) => {
+  const { idToken, role, name } = req.body;
+  if (!idToken || !role) return res.status(400).json({ error: "Missing required fields." });
+  if (!["student", "teacher"].includes(role)) return res.status(400).json({ error: "Invalid role." });
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name: fbName } = decodedToken;
+    const finalName = name || fbName || email.split("@")[0];
+    const emailNorm = email.toLowerCase();
+
+    // Check if user already exists (parallel race condition)
+    let existingId = usersByEmail.get(emailNorm);
+    if (existingId) return res.status(400).json({ error: "User already exists." });
+
+    const newUser = {
+      id: uuidv4(),
+      name: finalName,
+      email: emailNorm,
+      passwordHash: "$2b$10$google_oauth_placeholder",
+      firebaseUid: uid,
+      role: role,
+      isApproved: false, // Default to false for all new registrations
+      createdAt: new Date().toISOString()
+    };
+
+    users.set(newUser.id, newUser);
+    usersByEmail.set(newUser.email, newUser.id);
+
+    if (dbReady) {
+      await persistUser(newUser);
+      await logHistory(newUser.id, "signup_google", { email: newUser.email, role: newUser.role });
+    }
+
+    const token = issueToken(newUser);
+    return res.json({ token, user: sanitizeUser(newUser) });
+  } catch (error) {
+    console.error("Firebase Complete Error:", error.message);
+    return res.status(401).json({ error: "Authentication failed during completion." });
   }
 });
 

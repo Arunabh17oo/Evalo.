@@ -75,7 +75,7 @@ export default function EvaChatbot({ token }) {
                         <div className="eva-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span className="status-dot"></span>
-                                <h3>Eva AI</h3>
+                                <h3>Eva</h3>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
